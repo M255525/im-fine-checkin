@@ -1,0 +1,15 @@
+name = "im-fine-checkin"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+SITE_URL = "https://m255525.github.io/im-fine-checkin/"
+VAPID_PUBLIC = "BGHv_CgoMOGQH6QD72_QFwD4hWqEgaJ7W5j8gkWFtRXnso06qManzFThTL5N4_jJ-995K601lzmFUlJmZGVrc0k"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "im-fine-checkin"
+database_id = "2358fcf6-a8b6-4bd5-b76b-6e40cfdb7deb"

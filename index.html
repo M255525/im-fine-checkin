@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>「我很好」每日報平安</title>
+<meta name="description" content="長輩每天按一個按鈕報平安，過了時間沒按，家人的手機會收到通知。">
+<meta name="theme-color" content="#21406F">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="我很好">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --tile:#21406F;--tile-line:#1A3460;--plate:#0F5FB3;--ink:#13233F;--sub:#44566F;
+  --lamp:#FFC72E;--lamp-soft:#FFE9A8;--sky:#DCEBF7;--paper:#fff;--line:#A9BED4;
+  --brick:#B3331C;--frame:#E6ECF3;--night:#0D1B36;
+  --mq:0px;--fs:22px;
+  --disp:'LXGW WenKai TC','Noto Sans TC','Microsoft JhengHei',serif;
+}
+*{box-sizing:border-box}
+html{font-size:var(--fs);-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:var(--mq);min-height:100dvh;background:var(--sky);color:var(--ink);font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;font-weight:500;line-height:1.6}
+body.has-marquee{--mq:34px}
+body.wall{color:#fff;background-color:var(--tile);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='44'%3E%3Cg fill='none' stroke='%231A3460' stroke-width='2'%3E%3Cpath d='M0 1h112M0 23h112M1 0v22M57 22v22'/%3E%3C/g%3E%3C/svg%3E")}
+h1,h2{font-family:var(--disp);font-weight:700;line-height:1.3;margin:0}
+p{margin:.4rem 0}
+a{color:var(--plate);font-weight:700}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:4px solid var(--lamp);outline-offset:2px}
+body:not(.wall) :focus-visible{outline-color:var(--plate)}
+#app{max-width:560px;margin:0 auto;padding:12px 16px 24px}
+
+#marqueeBar{position:fixed;top:0;left:0;right:0;height:34px;background:var(--night);z-index:60;overflow:hidden;display:none;align-items:center}
+#marqueeBar.show{display:flex}
+#marqueeTrack{display:inline-block;white-space:nowrap;padding-left:100%;font-size:16px;font-weight:700;color:#fff;animation:marquee-scroll 30s linear infinite}
+#marqueeBar:hover #marqueeTrack{animation-play-state:paused}
+@keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:.4rem;width:100%;min-height:3.1rem;padding:.5rem 1rem;border:0;border-radius:.6rem;background:var(--plate);color:#fff;font-weight:700;text-decoration:none;cursor:pointer;text-align:center}
+.btn.alt{background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 2px var(--line)}
+.btn.danger{background:var(--brick)}
+.btn.lamp{background:var(--lamp);color:var(--ink)}
+.btn.line{background:#06C755}
+.btn[disabled]{opacity:.6;cursor:default}
+.stack{display:grid;gap:.5rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.card{background:var(--paper);border-radius:.8rem;padding:.8rem 1rem;box-shadow:0 0 0 2px var(--line)}
+.small{font-size:.8rem;color:var(--sub)}
+.wall .small{color:#D5E2F2}
+.link{background:none;border:0;padding:.2rem;color:var(--plate);font-weight:700;text-decoration:underline;cursor:pointer;font-size:.8rem}
+.wall .link{color:#fff}
+label.f{display:block;font-weight:700;margin-top:.7rem}
+label.f small{display:block;font-weight:500;font-size:.8rem;color:var(--sub)}
+input[type=text],input[type=time],input[type=tel],input[type=date]{display:block;width:100%;min-height:3rem;margin-top:.25rem;padding:.3rem .6rem;border:2px solid var(--line);border-radius:.5rem;background:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.35rem}
+.chip{min-height:2.4rem;padding:0 .8rem;border:2px solid var(--line);border-radius:.5rem;background:#fff;font-weight:700;cursor:pointer;font-size:.85rem}
+.chip[aria-pressed=true]{background:var(--plate);border-color:var(--plate);color:#fff}
+.code{font-weight:900;font-size:1.05rem;letter-spacing:.06em;font-variant-numeric:tabular-nums;user-select:all}
+.demo-tag{display:block;background:var(--lamp);color:var(--ink);font-weight:700;font-size:.75rem;text-align:center;border-radius:.4rem;padding:.15rem .5rem;margin-bottom:.5rem}
+
+/* 門牌 */
+.plate{display:inline-block;background:var(--plate);color:#fff;border:3px solid #fff;border-radius:.35rem;padding:.05rem .8rem;font-family:var(--disp);font-size:1.25rem;line-height:1.5;box-shadow:0 2px 0 rgba(0,0,0,.35)}
+.top{display:flex;align-items:center;gap:.6rem;min-height:3rem}
+.top .sp{flex:1;min-width:0}
+.gear{flex:none;width:3rem;height:3rem;border:0;border-radius:.6rem;background:rgba(255,255,255,.14);color:inherit;font-size:1.3rem;cursor:pointer}
+body:not(.wall) .gear{background:var(--paper);box-shadow:inset 0 0 0 2px var(--line)}
+
+/* 鐵窗按鈕：整扇窗就是按鈕 */
+.win{position:relative;display:block;width:100%;height:min(56dvh,500px);min-height:300px;margin:.5rem 0 .7rem;padding:0;border:clamp(10px,3vw,16px) solid var(--frame);border-radius:6px;background:var(--night);box-shadow:0 0 0 3px #8FA2B8,0 10px 0 -2px rgba(0,0,0,.35);cursor:pointer;overflow:hidden;transition:background .7s ease,box-shadow .7s ease;-webkit-tap-highlight-color:transparent}
+.win:active:not([disabled]){transform:translateY(3px)}
+.win svg{position:absolute;inset:0;width:100%;height:100%;color:#7E93AD;transition:color .7s ease}
+.win .say{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:max-content;max-width:86%;padding:.1em .42em .16em;border-radius:.16em;background:var(--lamp);color:var(--ink);font-family:var(--disp);font-size:clamp(68px,21vw,118px);line-height:1.15;box-shadow:0 6px 0 #B98500;transition:background .5s,box-shadow .5s}
+.win:not(.mini) .say{writing-mode:vertical-rl;white-space:nowrap;max-width:none;padding:.3em .22em;font-size:clamp(60px,min(26vw,12dvh),118px);letter-spacing:.04em}
+.win:not(.mini).lit .say{font-size:clamp(52px,min(22vw,10dvh),100px)}
+.win.lit{background:radial-gradient(ellipse at 50% 30%,#FFF6CF 0,#FFD65C 55%,#F2A922 100%);box-shadow:0 0 0 3px #8FA2B8,0 0 70px 18px rgba(255,199,46,.5);cursor:default}
+.win.lit svg{color:#7A5208}
+.win.lit .say{background:rgba(255,246,207,.86);box-shadow:none}
+.win.busy .say{opacity:.75}
+.msg{text-align:center;min-height:4.2rem}
+.msg b{display:block;font-family:var(--disp);font-size:1.45rem;line-height:1.35}
+.foot{text-align:center;margin-top:.8rem}
+
+/* 公寓立面：一扇窗一天 */
+.bld{margin-top:.8rem}
+.roof{display:block;width:100%;height:46px;color:var(--tile)}
+.facade{padding:.55rem .5rem .6rem;border-radius:0 0 .3rem .3rem;background-color:var(--tile)}
+.wk,.wd{display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(4px,1.4vw,8px)}
+.wd{margin-bottom:.25rem;color:#D5E2F2;font-size:.68rem;text-align:center}
+.wk{margin-bottom:clamp(6px,1.6vw,9px)}
+.d{position:relative;aspect-ratio:4/5;min-width:0;padding:0;border:3px solid var(--frame);border-radius:2px;background:var(--night);color:#AEBFD4;font-size:.68rem;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;background-image:repeating-linear-gradient(90deg,transparent 0 22%,rgba(126,147,173,.55) 22% 26%)}
+.d.lit{background-color:var(--lamp);color:var(--ink);background-image:repeating-linear-gradient(90deg,transparent 0 22%,rgba(122,82,8,.3) 22% 26%)}
+.d.rest{background-color:#5C6F8C;color:#fff}
+.d.void{visibility:hidden}
+.d.today{box-shadow:0 0 0 3px #fff}
+.legend{display:flex;flex-wrap:wrap;gap:.2rem .8rem;margin-top:.35rem;font-size:.75rem;color:var(--sub)}
+.legend i{display:inline-block;width:.75em;height:.95em;margin-right:.25em;vertical-align:-.1em;border:2px solid #8FA2B8}
+
+.status{padding:.75rem 1rem;border-radius:.8rem;margin-top:.5rem}
+.status h2{font-size:1.4rem}
+.status.ok{background:var(--lamp);color:var(--ink)}
+.status.waiting{background:var(--paper);box-shadow:0 0 0 2px var(--line)}
+.status.late{background:var(--brick);color:#fff}
+.status.paused{background:#5C6F8C;color:#fff}
+.status .btn{margin-top:.5rem}
+.status.late .btn{background:#fff;color:var(--brick)}
+.strip{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .6rem;margin-top:.5rem;padding:.5rem .8rem;border-radius:.6rem;background:var(--paper);box-shadow:0 0 0 2px var(--line);font-size:.85rem}
+.strip.warn{box-shadow:0 0 0 3px var(--brick)}
+.strip.call{background:var(--lamp-soft);box-shadow:0 0 0 2px var(--lamp);font-weight:700}
+.strip .btn{width:auto;min-height:2.5rem;font-size:.85rem}
+.tabs{display:flex;gap:.4rem;overflow-x:auto;padding:.2rem 0}
+.tab{flex:none;padding:.05rem .7rem;border:3px solid var(--plate);border-radius:.35rem;background:#fff;color:var(--plate);font-family:var(--disp);font-size:1.05rem;cursor:pointer}
+.tab[aria-selected=true]{background:var(--plate);color:#fff}
+
+/* 首頁 */
+.hero h1{font-size:clamp(34px,9vw,46px);margin-top:.3rem}
+.hero p{color:#E8F0FA}
+.win.mini{height:clamp(220px,42dvh,330px);min-height:220px}
+.win.mini .say{white-space:nowrap;font-size:clamp(50px,15vw,84px)}
+.steps{margin:.4rem 0 0;padding-left:1.3em}
+.steps li{margin:.25rem 0}
+
+/* 設定視窗 */
+#modal{position:fixed;inset:0;z-index:70;display:none;background:rgba(13,27,54,.72);padding:12px;overflow:auto;color:var(--ink)}
+#modal.show{display:block}
+#modal .box{max-width:560px;margin:calc(var(--mq) + 8px) auto 12px;padding:.8rem 1rem 1rem;border-radius:.9rem;background:var(--sky)}
+#modal h2{font-size:1.3rem;margin-bottom:.4rem}
+#modal .close{float:right;width:2.6rem;height:2.6rem;border:0;border-radius:.5rem;background:#fff;font-size:1.1rem;font-weight:900;cursor:pointer}
+.set-sec{border-radius:.6rem;margin-bottom:.45rem;background:var(--paper);box-shadow:0 0 0 2px var(--line)}
+.set-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:.5rem;padding:.55rem .7rem;font-weight:700;min-height:3rem}
+.set-sec>summary::-webkit-details-marker{display:none}
+.set-sec>summary::after{content:'▸';flex:none;transition:transform .2s}
+.set-sec[open]>summary::after{transform:rotate(90deg)}
+.set-sec .sst{flex:1 1 0;min-width:0}
+.set-sec .ssv{font-weight:500;font-size:.78rem;color:var(--sub);text-align:right}
+.set-body{padding:0 .7rem .7rem}
+.foldall{display:flex;justify-content:flex-end;margin-bottom:.2rem}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:80;display:none;max-width:528px;margin:0 auto;padding:.6rem .9rem;border-radius:.6rem;background:var(--night);color:#fff;font-weight:700;text-align:center;box-shadow:0 0 0 2px #fff}
+#toast.show{display:block}
+#qr{display:grid;place-items:center;margin-top:.5rem}
+#qr img,#qr svg{width:220px;height:220px;background:#fff;padding:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}#marqueeTrack{animation-duration:90s!important}}
+@media (min-width:900px){.wall #app{max-width:600px}}
+</style>
+</head>
+<body>
+<div id="marqueeBar"><div id="marqueeTrack"></div></div>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"><div class="box" id="modalBox"></div></div>
+<div id="toast" role="status"></div>
+<script>
+var API = 'https://im-fine-checkin.content-workflow.workers.dev';
+var PREFIX = 'ifc.';
+var BASE = location.origin + location.pathname.replace(/index\.html$/, '');
+var GRILLE = '<svg viewBox="0 0 300 380" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5"><path d="M30 0v380M75 0v380M120 0v380M180 0v380M225 0v380M270 0v380"/><path d="M0 62h300M0 318h300" stroke-width="7"/><path d="M0 20h300M0 360h300"/><path d="M30 41l22-21 23 21-23 21zM120 41l30-21 30 21-30 21zM225 41l22-21 23 21-23 21zM30 339l22-21 23 21-23 21zM120 339l30-21 30 21-30 21zM225 339l22-21 23 21-23 21z"/></g></svg>';
+var ROOF = '<svg class="roof" viewBox="0 0 400 46" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><g fill="currentColor"><rect x="284" y="6" width="64" height="30" rx="5"/><rect x="292" y="36" width="5" height="10"/><rect x="335" y="36" width="5" height="10"/><rect x="60" y="4" width="4" height="42"/><rect x="44" y="12" width="36" height="3"/><rect x="50" y="20" width="24" height="3"/></g></svg>';
+var WARN_HTML = '<h2>⚠ 使用警語</h2>' +
+  '<p><b>這不是緊急救援，也不是醫療監護。</b>身體不舒服或有危險，請直接撥打 <b>119</b>。</p>' +
+  '<ul style="padding-left:1.2em;margin:.4rem 0">' +
+  '<li>手機關機、沒網路、省電模式、沒開通知時，通知可能收不到或晚到，不能當成唯一的照顧方式。</li>' +
+  '<li>沒按不代表出事，可能只是忘了；按了也不代表身體沒問題。</li>' +
+  '<li>「稱呼」請寫媽媽、阿公這類稱呼，不要寫全名，也不要填地址或病歷。</li>' +
+  '<li>配對碼就像鑰匙，拿到的人能看到按的紀錄，只傳給自己的家人。</li>' +
+  '<li>按的時間存在雲端（Cloudflare），保留 100 天；180 天沒人使用會自動刪除，也可以隨時在設定裡刪除。</li>' +
+  '<li>請先取得長輩同意再使用。</li></ul>';
+
+var ua = navigator.userAgent || '';
+var ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var inLine = /\bLine\//i.test(ua);
+var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+var $ = function(id){ return document.getElementById(id); };
+var app = $('app');
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function lsGet(k){ try{ return localStorage.getItem(PREFIX + k); }catch(e){ return null; } }
+function lsSet(k, v){ try{ localStorage.setItem(PREFIX + k, v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(PREFIX + k); }catch(e){} }
+function lsJson(k, d){ try{ return JSON.parse(lsGet(k)) || d; }catch(e){ return d; } }
+function fmtCode(c){ return String(c).replace(/(.{4})(?=.)/g, '$1-'); }
+function toast(m){ var t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(function(){ t.classList.remove('show'); }, 3800); }
+function fmtTime(at, tz){ return new Intl.DateTimeFormat('zh-TW', {timeZone: tz || undefined, hourCycle:'h23', hour:'numeric', minute:'2-digit'}).format(new Date(at)); }
+function localDay(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function addDays(day, n){ return new Date(Date.parse(day + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+function dayLabel(day){ var d = new Date(day + 'T12:00:00Z'); return (d.getUTCMonth() + 1) + ' 月 ' + d.getUTCDate() + ' 日 星期' + '日一二三四五六'[d.getUTCDay()]; }
+
+/* ---------- 範例模式：不連後端，資料全虛構 ---------- */
+var demo = null;
+function demoData(){
+  var today = localDay(), days = [], now = Date.now();
+  for(var i = 38; i >= 1; i--){ if(i === 5 || i === 17) continue; if(i >= 9 && i <= 11) continue; days.push({day: addDays(today, -i), at: now - i * 864e5 - (i % 5) * 9e5}); }
+  return {nickname:'媽媽', tz:Intl.DateTimeFormat().resolvedOptions().timeZone, today:today, remindAt:'09:00', deadline:'11:00', pauseUntil:null, startDay:addDays(today, -40), createdDay:addDays(today, -40), state:'ok', checkedAt:now - 3e6, days:days.concat([{day:today, at:now - 3e6}]), elderCode:'DEMO22334455', callAt:null, familyDevices:2, elderDevices:1, alert:null, rest:[addDays(today, -9), addDays(today, -10), addDays(today, -11)]};
+}
+function demoScene(s){
+  var today = demo.today;
+  demo.state = s; demo.days = demo.days.filter(function(d){ return d.day !== today; }); demo.checkedAt = null; demo.alert = null;
+  if(s === 'ok'){ demo.checkedAt = Date.now() - 3e6; demo.days.push({day:today, at:demo.checkedAt}); }
+  if(s === 'late'){ demo.alert = {count:1, at:Date.now() - 6e5, sent:2}; }
+}
+function demoApi(a, b){
+  if(a === 'elder') return {nickname:demo.nickname, tz:demo.tz, today:demo.today, checkedAt:demo.checkedAt, remindAt:demo.remindAt, deadline:demo.deadline, callAt:demo.callAt};
+  if(a === 'family') return JSON.parse(JSON.stringify(demo));
+  if(a === 'checkin'){ demoScene('ok'); demo.pressed = true; demo.checkedAt = Date.now(); demo.days[demo.days.length - 1].at = demo.checkedAt; return {today:demo.today, checkedAt:demo.checkedAt}; }
+  if(a === 'callMe'){ demo.callAt = Date.now(); return {sent:2}; }
+  if(a === 'settings'){ ['nickname','remindAt','deadline','pauseUntil'].forEach(function(k){ if(b[k] !== undefined) demo[k] = b[k]; }); if(demo.pauseUntil && !demo.checkedAt) demo.state = 'paused'; return {ok:true}; }
+  return {ok:true};
+}
+function api(a, b){
+  if(demo) return Promise.resolve(demoApi(a, b || {}));
+  return fetch(API + '/api/' + a, {method:'POST', body:JSON.stringify(b || {})}).then(function(r){
+    return r.json().then(function(d){ if(!r.ok){ var e = new Error(d.error || '發生錯誤'); e.status = r.status; throw e; } return d; });
+  });
+}
+function errText(e){ return e && e.status ? e.message : '連不上網路，請檢查後再試一次。'; }
+
+/* ---------- 開啟通知 ---------- */
+var vapid = null;
+function urlKey(s){ var p = (s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'), r = atob(p), o = new Uint8Array(r.length); for(var i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
+function pushBlock(){
+  if(inLine) return '您正在 LINE 裡面開這個網頁，LINE 裡收不到通知。請按右上角選單，改用 Safari 或 Chrome 開啟。';
+  if(ios && !standalone) return 'iPhone 要先把這個網頁加到主畫面才收得到通知：按下方「分享」圖示，選「加入主畫面」，再從主畫面打開，輸入配對碼後回到這裡開啟。';
+  if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return '這個瀏覽器不支援通知，請改用手機上最新版的 Chrome 或 Safari。';
+  return '';
+}
+function currentSub(){
+  if(pushBlock()) return Promise.resolve(null);
+  return navigator.serviceWorker.ready.then(function(r){ return r.pushManager.getSubscription(); }).catch(function(){ return null; });
+}
+function enablePush(code, role, each){
+  if(demo){ toast('範例不會真的開啟通知'); return Promise.resolve(false); }
+  var why = pushBlock(); if(why){ showInfo('還不能開啟通知', why); return Promise.resolve(false); }
+  return Notification.requestPermission().then(function(p){
+    if(p !== 'granted'){ showInfo('通知被關閉了', '手機拒絕了這個網頁的通知。請到瀏覽器的網站設定，把這個網站的「通知」改成允許，再回來按一次。'); return false; }
+    return (vapid ? Promise.resolve({vapid:vapid}) : api('config')).then(function(c){
+      vapid = c.vapid;
+      return navigator.serviceWorker.ready;
+    }).then(function(r){
+      return r.pushManager.getSubscription().then(function(s){ return s || r.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlKey(vapid)}); });
+    }).then(function(s){
+      return api('subscribe', {code:code, role:role, each:!!each, subscription:s.toJSON()});
+    }).then(function(){
+      var m = lsJson('pushed', {}); m[code] = 1; lsSet('pushed', JSON.stringify(m));
+      toast('通知開好了'); return true;
+    });
+  }).catch(function(e){ toast(errText(e)); return false; });
+}
+function isPushed(code){ return !!lsJson('pushed', {})[code]; }
+function disablePush(code, role){
+  return currentSub().then(function(s){
+    var m = lsJson('pushed', {}); delete m[code]; lsSet('pushed', JSON.stringify(m));
+    if(s && !demo) return api('unsubscribe', {code:code, role:role, endpoint:s.endpoint}).catch(function(){});
+  });
+}
+
+/* ---------- 路由 ---------- */
+function families(){ return lsJson('families', []); }
+function saveFamilies(l){ lsSet('families', JSON.stringify(l)); }
+function addFamily(code, nick){ var l = families().filter(function(x){ return x.code !== code; }); l.push({code:code, nick:nick}); saveFamilies(l); lsSet('cur', code); lsSet('role', 'family'); }
+function readLinkHash(){
+  var m = /^#([ef])=([0-9A-Za-z-]+)/.exec(location.hash); if(!m) return false;
+  var code = m[2].toUpperCase().replace(/-/g, '');
+  if(m[1] === 'e'){ lsSet('elder', code); lsSet('role', 'elder'); history.replaceState(null, '', location.pathname + '#elder'); }
+  else { addFamily(code, ''); history.replaceState(null, '', location.pathname + '#family'); }
+  return true;
+}
+function go(h){ if(location.hash === h) route(); else location.hash = h; }
+function defaultRoute(){
+  var role = lsGet('role');
+  if(role === 'elder' && lsGet('elder')) return '#elder';
+  if(role === 'family' && families().length) return '#family';
+  return '#home';
+}
+var timer = null;
+function route(){
+  readLinkHash();
+  clearInterval(timer); closeModal();
+  var h = location.hash || defaultRoute();
+  demo = /^#demo-/.test(h) ? (demo || demoData()) : null;
+  document.body.classList.toggle('wall', h === '#home' || h === '#elder' || h === '#demo-elder');
+  window.scrollTo(0, 0);
+  if(h === '#elder' || h === '#demo-elder') viewElder();
+  else if(h === '#family' || h === '#demo-family') viewFamily();
+  else if(h === '#setup') viewSetup();
+  else if(h === '#pair') viewPair();
+  else if(h === '#done') viewDone();
+  else viewHome();
+  if(!lsGet('warnSeen') && !demo){ lsSet('warnSeen', '1'); showWarn(); }
+}
+window.addEventListener('hashchange', route);
+
+/* ---------- 首頁 ---------- */
+function viewHome(){
+  app.innerHTML = '<div class="hero"><h1>「我很好」<br>每日報平安</h1>' +
+    '<p>長輩每天按一下，家人就知道今天沒事。過了時間還沒按，家人的手機會收到通知。</p></div>' +
+    '<button class="win mini" id="hw" aria-label="按按看：點亮窗戶">' + GRILLE + '<span class="say">我很好</span></button>' +
+    '<div class="stack"><a class="btn lamp" href="#setup">幫爸媽設定</a>' +
+    '<a class="btn alt" href="#pair">我有配對碼</a>' +
+    '<div class="row2"><a class="btn alt" href="#demo-elder">看長輩畫面</a><a class="btn alt" href="#demo-family">看家人畫面</a></div></div>' +
+    '<div class="card" style="margin-top:.7rem;color:var(--ink)"><b>怎麼用</b><ol class="steps"><li>子女設定時間，把連結傳給長輩。</li><li>長輩每天打開，按窗戶上的「我很好」。</li><li>過了時間還沒按，家人手機跳出通知。</li></ol></div>' +
+    footHtml();
+  $('hw').onclick = function(){ this.classList.toggle('lit'); this.querySelector('.say').textContent = this.classList.contains('lit') ? '亮了' : '我很好'; };
+}
+function footHtml(){ return '<div class="foot"><button class="link" data-act="warn">⚠ 使用警語</button>　<a class="link" href="manual.html">操作手冊</a>　<button class="link" data-act="settings">⚙ 常用設定</button></div>'; }
+
+/* ---------- 設定新長輩 ---------- */
+function viewSetup(){
+  app.innerHTML = '<div class="top"><div class="sp"><h1 style="font-size:1.5rem">幫長輩設定</h1></div></div>' +
+    '<form class="card" id="f"><label class="f">怎麼稱呼長輩<small>寫稱呼就好，不要寫全名</small><input type="text" id="nick" maxlength="12" required autocomplete="off"></label>' +
+    '<div class="chips">' + ['媽媽','爸爸','阿嬤','阿公'].map(function(n){ return '<button type="button" class="chip" data-n="' + n + '">' + n + '</button>'; }).join('') + '</div>' +
+    '<label class="f">幾點提醒長輩按<small>長輩手機有開通知才會跳出來</small><input type="time" id="rm" value="09:00" required></label>' +
+    '<label class="f">幾點還沒按就通知家人<input type="time" id="dl" value="11:00" required></label>' +
+    '<p class="small" id="err" style="color:var(--brick);font-weight:700"></p>' +
+    '<button class="btn" id="go">建立</button></form><div class="foot"><a class="link" href="#home">回首頁</a></div>';
+  app.querySelectorAll('.chip').forEach(function(c){ c.onclick = function(){ $('nick').value = c.dataset.n; }; });
+  $('f').onsubmit = function(e){
+    e.preventDefault();
+    var rm = $('rm').value, dl = $('dl').value;
+    if(rm >= dl){ $('err').textContent = '通知家人的時間要比提醒長輩的時間晚。'; return; }
+    $('go').disabled = true;
+    api('create', {nickname:$('nick').value, tz:Intl.DateTimeFormat().resolvedOptions().timeZone, remindAt:rm, deadline:dl}).then(function(d){
+      addFamily(d.familyCode, d.nickname); lsSet('newElder', JSON.stringify(d)); go('#done');
+    }).catch(function(e2){ $('go').disabled = false; $('err').textContent = errText(e2); });
+  };
+}
+function linkFor(kind, code){ return BASE + '?openExternalBrowser=1#' + kind + '=' + code; }
+function shareBlock(nick, kind, code, text){
+  var url = linkFor(kind, code);
+  return '<p class="code">' + fmtCode(code) + '</p><div class="stack">' +
+    '<a class="btn line" href="https://line.me/R/share?text=' + encodeURIComponent(text + '\n' + url) + '" target="_blank" rel="noopener">用 LINE 傳送</a>' +
+    '<div class="row2"><button class="btn alt" data-copy="' + esc(url) + '">複製連結</button><button class="btn alt" data-qr="' + esc(url) + '">顯示 QR 碼</button></div></div><div id="qr"></div>';
+}
+function viewDone(){
+  var d = lsJson('newElder', null); if(!d){ go('#family'); return; }
+  app.innerHTML = '<h1 style="font-size:1.5rem;margin:.4rem 0">' + esc(d.nickname) + '的窗戶建好了</h1>' +
+    '<div class="stack"><div class="card"><b>第一步：把連結傳給' + esc(d.nickname) + '</b><p class="small">在長輩手機打開一次，再加到主畫面，以後按圖示就能報平安。</p>' +
+    shareBlock(d.nickname, 'e', d.elderCode, '這是每天報平安的連結，打開按「我很好」就可以：') + '</div>' +
+    '<div class="card"><b>第二步：開啟這支手機的通知</b><p class="small">沒開的話，長輩沒按時您不會知道。</p><button class="btn" id="en">開啟通知</button></div>' +
+    '<a class="btn alt" href="#family">到家人畫面</a></div>';
+  $('en').onclick = function(){ var b = this; enablePush(d.familyCode, 'family').then(function(ok){ if(ok){ b.textContent = '已開啟 ✓'; b.disabled = true; } }); };
+}
+
+/* ---------- 輸入配對碼 ---------- */
+function viewPair(){
+  app.innerHTML = '<h1 style="font-size:1.5rem;margin:.4rem 0">輸入配對碼</h1><form class="card" id="f"><label class="f">12 碼配對碼<small>長輩碼和家人碼都可以，會自動判斷</small><input type="text" id="c" autocomplete="off" autocapitalize="characters" spellcheck="false" required></label><p class="small" id="err" style="color:var(--brick);font-weight:700"></p><button class="btn" id="go">確定</button></form><div class="foot"><a class="link" href="#home">回首頁</a></div>';
+  $('f').onsubmit = function(e){
+    e.preventDefault();
+    var code = $('c').value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+    $('go').disabled = true;
+    api('family', {code:code}).then(function(d){ addFamily(code, d.nickname); go('#family'); }).catch(function(e1){
+      if(e1.status !== 404) throw e1;
+      return api('elder', {code:code}).then(function(){ lsSet('elder', code); lsSet('role', 'elder'); go('#elder'); });
+    }).catch(function(e2){ $('go').disabled = false; $('err').textContent = errText(e2); });
+  };
+}
+
+/* ---------- 長輩畫面 ---------- */
+var E = null;
+function pending(){ return lsJson('pending', null); }
+function flushPending(){
+  var p = pending(), code = lsGet('elder'); if(!p || !code || demo) return Promise.resolve();
+  return api('checkin', {code:code, at:p.at}).then(function(d){ lsDel('pending'); if(E){ E.checkedAt = d.checkedAt; E.today = d.today; paintElder(); } }).catch(function(e){ if(e.status) lsDel('pending'); });
+}
+function viewElder(){
+  var code = demo ? 'DEMO' : lsGet('elder');
+  if(!code){ go('#pair'); return; }
+  if(demo && !demo.pressed) demoScene('waiting');
+  E = E && !demo ? E : {nickname: lsGet('elderNick') || '', today: localDay(), checkedAt: null};
+  app.innerHTML = (demo ? '<span class="demo-tag">這是範例，按了不會通知任何人　<a href="#home" style="color:inherit">離開</a></span>' : '') +
+    '<div class="top"><span class="plate" id="pl"></span><div class="sp small" id="dt"></div><button class="gear" data-act="settings" aria-label="常用設定">⚙</button></div>' +
+    '<button class="win" id="w">' + GRILLE + '<span class="say" id="say">我很好</span></button>' +
+    '<div class="msg" id="msg" aria-live="polite"></div>' +
+    '<button class="btn alt" id="call">請家人打電話給我</button>' +
+    '<div class="foot"><button class="link" data-act="warn">⚠ 使用警語</button></div>';
+  $('w').onclick = pressElder;
+  $('call').onclick = function(){
+    var b = this; b.disabled = true;
+    api('callMe', {code:code}).then(function(d){ b.textContent = d.sent ? '已經請家人打給您了' : '家人手機沒開通知，這次沒送到'; }).catch(function(e){ b.disabled = false; toast(errText(e)); });
+  };
+  paintElder(); loadElder();
+  timer = setInterval(loadElder, 60000);
+}
+function loadElder(){
+  var code = demo ? 'DEMO' : lsGet('elder');
+  flushPending();
+  api('elder', {code:code}).then(function(d){ E = d; lsSet('elderNick', d.nickname); paintElder(); }).catch(function(e){
+    if(e.status === 404){ lsDel('elder'); lsDel('role'); showInfo('這組配對已經刪除', '請家人重新傳連結給您。'); go('#home'); return; }
+    if(E && E.today !== localDay()){ E.today = localDay(); E.checkedAt = null; paintElder(); }
+  });
+}
+function paintElder(){
+  if(!$('w')) return;
+  var p = pending(), today = E.today || localDay();
+  var queued = p && p.day === today, done = !!E.checkedAt, w = $('w');
+  $('pl').textContent = E.nickname || '我的窗戶'; $('pl').style.visibility = '';
+  $('dt').textContent = dayLabel(today);
+  w.classList.toggle('lit', done || !!queued); w.disabled = done || !!queued;
+  w.setAttribute('aria-label', done ? '今天已經報平安了' : '按一下，告訴家人我很好');
+  $('say').textContent = done || queued ? '今天很好' : '我很好';
+  $('msg').innerHTML = done ? '<b>已經告訴家人了</b><span class="small">今天 ' + fmtTime(E.checkedAt, E.tz) + ' 按的，明天再按一次就好。</span>'
+    : queued ? '<b>網路不通，還沒送出</b><span class="small">網路恢復後會自動告訴家人，不用再按。</span>'
+    : '<b>今天還沒按</b><span class="small">按一下窗戶，告訴家人今天很好。</span>';
+}
+function chime(){
+  if(lsGet('sound') === 'off') return;
+  try{ var C = new (window.AudioContext || window.webkitAudioContext)(); [523.25, 783.99].forEach(function(f, i){ var o = C.createOscillator(), g = C.createGain(), t = C.currentTime + i * .16; o.frequency.value = f; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.25, t + .03); g.gain.exponentialRampToValueAtTime(.0001, t + .5); o.connect(g); g.connect(C.destination); o.start(t); o.stop(t + .55); }); }catch(e){}
+}
+function pressElder(){
+  var w = $('w'), code = demo ? 'DEMO' : lsGet('elder'), at = Date.now();
+  if(w.disabled) return;
+  w.disabled = true; w.classList.add('busy');
+  if(navigator.vibrate) navigator.vibrate(40);
+  api('checkin', {code:code, at:at}).then(function(d){
+    w.classList.remove('busy'); chime(); E.checkedAt = d.checkedAt; E.today = d.today; paintElder();
+  }).catch(function(e){
+    w.classList.remove('busy');
+    if(e.status){ w.disabled = false; toast(errText(e)); return; }
+    lsSet('pending', JSON.stringify({at:at, day:E.today || localDay()})); chime(); paintElder();
+  });
+}
+window.addEventListener('online', function(){ flushPending(); });
+
+/* ---------- 家人畫面 ---------- */
+var F = null, fOffline = false;
+function curCode(){ var l = families(), c = lsGet('cur'); return l.some(function(x){ return x.code === c; }) ? c : (l[0] && l[0].code); }
+function viewFamily(){
+  var code = demo ? 'DEMO' : curCode();
+  if(!code){ go('#home'); return; }
+  F = null; app.innerHTML = '<p>讀取中…</p>';
+  loadFamily(); timer = setInterval(loadFamily, 60000);
+}
+function loadFamily(){
+  var code = demo ? 'DEMO' : curCode();
+  api('family', {code:code}).then(function(d){
+    F = d; fOffline = false;
+    if(!demo){ var l = families(); l.forEach(function(x){ if(x.code === code) x.nick = d.nickname; }); saveFamilies(l); }
+    paintFamily();
+  }).catch(function(e){
+    if(e.status === 404){ saveFamilies(families().filter(function(x){ return x.code !== code; })); toast('這位長輩的資料已經刪除了'); go(families().length ? '#family' : '#home'); return; }
+    fOffline = true; if(F) paintFamily(); else app.innerHTML = '<div class="card"><p>' + esc(errText(e)) + '</p><button class="btn" data-act="reload">再試一次</button></div>';
+  });
+}
+function statusHtml(){
+  var n = esc(F.nickname), tel = demo ? '' : lsGet('tel.' + curCode()), call = tel ? '<a class="btn" href="tel:' + esc(tel) + '">打電話給' + n + '</a>' : '', pa = F.pauseUntil && F.today <= F.pauseUntil;
+  if(F.state === 'ok') return '<div class="status ok"><h2>' + n + '今天 ' + fmtTime(F.checkedAt, F.tz) + ' 報平安了</h2></div>';
+  if(F.state === 'paused' || pa) return '<div class="status paused"><h2>暫停提醒中</h2><p>到 ' + dayLabel(F.pauseUntil) + '，這段期間沒按也不會通知。</p></div>';
+  if(F.state === 'late'){
+    var sent = F.alert ? (F.alert.sent ? '已通知 ' + F.alert.sent + ' 支手機。' : '<b>沒有任何手機收到通知，請邀請家人開啟。</b>') : '';
+    return '<div class="status late"><h2>' + n + '過了 ' + F.deadline + ' 還沒報平安</h2><p>可能只是忘了，打個電話問問。' + sent + '</p>' + call + '</div>';
+  }
+  return '<div class="status waiting"><h2>' + n + '今天還沒按</h2><p class="small">' + (F.today < F.startDay ? '明天開始計算。' : '過了 ' + F.deadline + ' 還沒按，會通知您。') + '</p></div>';
+}
+function facadeHtml(){
+  var t = new Date(F.today + 'T12:00:00Z'), dow = (t.getUTCDay() + 6) % 7, start = addDays(F.today, -dow - 28), map = {}, rest = F.rest || [];
+  F.days.forEach(function(d){ map[d.day] = d.at; });
+  var rows = '';
+  for(var w = 0; w < 5; w++){
+    rows += '<div class="wk">';
+    for(var i = 0; i < 7; i++){
+      var day = addDays(start, w * 7 + i), dd = Number(day.slice(8)), at = map[day], cls = 'd';
+      if(day > F.today || day < F.createdDay) cls += ' void';
+      else if(at) cls += ' lit';
+      else if(rest.indexOf(day) >= 0) cls += ' rest';
+      if(day === F.today) cls += ' today';
+      var state = at ? fmtTime(at, F.tz) + ' 報平安' : rest.indexOf(day) >= 0 ? '暫停' : day === F.today ? '還沒按' : '沒有按';
+      rows += '<button class="' + cls + '" data-day="' + day + '" data-info="' + esc(dayLabel(day) + '：' + state) + '" aria-label="' + esc(dayLabel(day) + state) + '">' + dd + '</button>';
+    }
+    rows += '</div>';
+  }
+  return '<div class="bld">' + ROOF + '<div class="facade"><div class="wd">' + '一二三四五六日'.split('').map(function(c){ return '<span>' + c + '</span>'; }).join('') + '</div>' + rows + '</div></div>' +
+    '<div class="legend"><span><i style="background:var(--lamp)"></i>有報平安</span><span><i style="background:var(--night)"></i>沒有按</span>' + (rest.length ? '<span><i style="background:#5C6F8C"></i>暫停</span>' : '') + '</div><p class="small" id="dayInfo" aria-live="polite">點一扇窗看那天幾點按的。</p>';
+}
+function paintFamily(){
+  var l = demo ? [] : families(), code = demo ? 'DEMO' : curCode();
+  var today = F.callAt && new Date(F.callAt).toDateString() === new Date().toDateString();
+  var html = demo ? '<span class="demo-tag">這是範例，資料都是虛構的　<a href="#home" style="color:inherit">離開</a></span>' : '';
+  html += '<div class="top"><div class="sp">' + (l.length > 1 ? '<div class="tabs" role="tablist">' + l.map(function(x){ return '<button class="tab" role="tab" aria-selected="' + (x.code === code) + '" data-tab="' + x.code + '">' + esc(x.nick || '長輩') + '</button>'; }).join('') + '</div>' : '<span class="plate">' + esc(F.nickname) + '的窗戶</span>') + '</div><button class="gear" data-act="settings" aria-label="常用設定">⚙</button></div>';
+  if(demo) html += '<div class="chips">' + [['ok','已按'],['waiting','還沒按'],['late','過時間沒按']].map(function(s){ return '<button class="chip" data-scene="' + s[0] + '" aria-pressed="' + (F.state === s[0]) + '">' + s[1] + '</button>'; }).join('') + '</div>';
+  if(fOffline) html += '<div class="strip warn">連不上網路，下面是之前的資料。</div>';
+  html += statusHtml();
+  if(today) html += '<div class="strip call">' + esc(F.nickname) + ' ' + fmtTime(F.callAt, F.tz) + ' 按了「請家人打電話給我」</div>';
+  html += '<div id="pushStrip"></div>' + facadeHtml() + footHtml();
+  app.innerHTML = html; paintPushStrip();
+}
+function paintPushStrip(){
+  var el = $('pushStrip'), code = demo ? 'DEMO' : curCode(); if(!el) return;
+  if(demo){ el.innerHTML = '<div class="strip"><span class="sp" style="flex:1">這支手機會收到通知</span></div>'; return; }
+  currentSub().then(function(s){
+    if(!$('pushStrip')) return;
+    var on = s && isPushed(code) && Notification.permission === 'granted';
+    el.innerHTML = on ? '<div class="strip"><span style="flex:1">這支手機會收到通知</span><button class="btn alt" data-act="test">送測試通知</button></div>'
+      : '<div class="strip warn"><span style="flex:1"><b>這支手機還收不到通知</b></span><button class="btn" data-act="enable">開啟通知</button></div>';
+  });
+}
+
+/* ---------- 視窗與設定 ---------- */
+function openModal(html){ $('modalBox').innerHTML = '<button class="close" data-act="close" aria-label="關閉">✕</button>' + html; $('modal').classList.add('show'); $('modalBox').querySelector('.close').focus(); }
+function closeModal(){ $('modal').classList.remove('show'); }
+function showInfo(t, m){ openModal('<h2>' + esc(t) + '</h2><p>' + esc(m) + '</p><button class="btn" data-act="close">知道了</button>'); }
+function showWarn(){ openModal(WARN_HTML + '<button class="btn" data-act="close">我知道了</button>'); }
+function sec(id, title, val, body){ return '<details class="set-sec" data-sec="' + id + '"><summary><span class="sst">' + title + '</span><span class="ssv">' + esc(val) + '</span></summary><div class="set-body">' + body + '</div></details>'; }
+function fsName(){ return {'22px':'標準','25px':'大','28px':'特大'}[lsGet('fs') || '22px']; }
+function commonSecs(){
+  var fs = lsGet('fs') || '22px';
+  return sec('font', '字的大小', fsName(), '<div class="chips">' + [['22px','標準'],['25px','大'],['28px','特大']].map(function(x){ return '<button class="chip" data-fs="' + x[0] + '" aria-pressed="' + (fs === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>');
+}
+function aboutSec(){
+  return sec('about', '關於本工具', '', '<p>👤 創作者 Mark Tsai（蔡豐全）<br><a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a></p><div class="stack"><a class="btn alt" href="manual.html">📖 操作手冊</a><button class="btn alt" data-act="warn">⚠ 使用警語</button>' + (standalone ? '' : '<button class="btn alt" data-act="install">📲 加入主畫面</button>') + '</div><p class="small" style="margin-top:.5rem">訪客數 <img src="https://visitor-badge.laobi.icu/badge?page_id=m255525.imfinecheckin" alt="訪客次數" height="20" loading="lazy" style="vertical-align:middle"></p>');
+}
+function settingsHtml(){
+  var h = location.hash, s = '<h2>⚙ 常用設定</h2><div class="foldall"><button class="link" data-act="foldall">全部展開／收合</button></div>' + commonSecs();
+  if(h === '#elder' || h === '#demo-elder'){
+    var code = lsGet('elder') || '';
+    s += sec('sound', '按下去的聲音', lsGet('sound') === 'off' ? '關' : '開', '<div class="chips"><button class="chip" data-sound="on" aria-pressed="' + (lsGet('sound') !== 'off') + '">開</button><button class="chip" data-sound="off" aria-pressed="' + (lsGet('sound') === 'off') + '">關</button></div>');
+    s += sec('rem', '每天提醒我按', isPushed(code) ? '已開啟' : '未開啟', '<p class="small">到了家人設定的時間，手機會跳出提醒。</p><button class="btn" data-act="' + (isPushed(code) ? 'elderOff' : 'elderOn') + '">' + (isPushed(code) ? '關閉提醒' : '開啟提醒') + '</button>');
+    if(!demo) s += sec('pair', '配對資料', '', '<p class="small">長輩配對碼</p><p class="code">' + fmtCode(code) + '</p><button class="btn alt" data-act="unpair">這支手機不再使用</button>');
+  } else if((h === '#family' || h === '#demo-family') && F){
+    var c = demo ? 'DEMO' : curCode(), n = esc(F.nickname), tel = lsGet('tel.' + c) || '', each = lsGet('each.' + c) === '1';
+    s += sec('time', n + '的時間', F.remindAt + '／' + F.deadline, '<label class="f">稱呼<input type="text" id="sNick" maxlength="12" value="' + n + '"></label><label class="f">提醒長輩<input type="time" id="sRm" value="' + F.remindAt + '"></label><label class="f">通知家人<input type="time" id="sDl" value="' + F.deadline + '"></label><button class="btn" data-act="saveTime" style="margin-top:.5rem">儲存</button>');
+    s += sec('pause', '暫停提醒', F.pauseUntil && F.today <= F.pauseUntil ? '到 ' + F.pauseUntil : '', '<p class="small">長輩出遊、住院或跟您同住時用，暫停期間不通知。</p><label class="f">暫停到哪一天<input type="date" id="sPause" min="' + F.today + '" max="' + addDays(F.today, 90) + '" value="' + (F.pauseUntil || '') + '"></label><div class="row2" style="margin-top:.5rem"><button class="btn" data-act="savePause">暫停</button><button class="btn alt" data-act="clearPause">取消暫停</button></div>');
+    s += sec('notify', '通知方式', each ? '每次都通知' : '沒按才通知', '<p class="small">預設只有沒按才通知。勾選後，長輩每天按的時候也會跟您說一聲。</p><div class="chips"><button class="chip" data-each="0" aria-pressed="' + !each + '">沒按才通知</button><button class="chip" data-each="1" aria-pressed="' + each + '">每次都通知</button></div>');
+    s += sec('tel', '長輩的電話', tel ? '已填' : '', '<p class="small">只存在這支手機，不會上傳。填了之後，沒按時畫面會出現撥號按鈕。</p><input type="tel" id="sTel" value="' + esc(tel) + '"><button class="btn" data-act="saveTel" style="margin-top:.5rem">儲存</button>');
+    if(!demo){
+      s += sec('inviteE', '再傳一次長輩連結', '', shareBlock(F.nickname, 'e', F.elderCode, '這是每天報平安的連結，打開按「我很好」就可以：'));
+      s += sec('inviteF', '邀請兄弟姊妹', F.familyDevices + ' 支手機有開通知', '<p class="small">對方打開連結後，也要開啟通知才收得到。</p>' + shareBlock(F.nickname, 'f', c, '一起看' + F.nickname + '有沒有報平安：'));
+      s += sec('more', '再加一位長輩', '', '<a class="btn alt" href="#setup">新增</a>');
+      s += sec('data', '資料', '', '<div class="stack"><button class="btn alt" data-act="export">下載紀錄（JSON）</button><button class="btn alt" data-act="leave">這支手機不再追蹤' + n + '</button><button class="btn danger" data-act="delete">刪除' + n + '的全部資料</button></div>');
+    }
+  }
+  return s + aboutSec();
+}
+function openSettings(){
+  openModal(settingsHtml());
+  var open = lsJson('fold', []);
+  document.querySelectorAll('.set-sec').forEach(function(d){
+    if(open.indexOf(d.dataset.sec) >= 0) d.open = true;
+    d.addEventListener('toggle', saveFold);
+  });
+}
+function saveFold(){ var o = []; document.querySelectorAll('.set-sec').forEach(function(d){ if(d.open) o.push(d.dataset.sec); }); lsSet('fold', JSON.stringify(o)); }
+function applyFs(){ document.documentElement.style.setProperty('--fs', lsGet('fs') || '22px'); }
+function saveSettings(b, msg){
+  var code = demo ? 'DEMO' : curCode(); b.code = code;
+  api('settings', b).then(function(){ toast(msg); closeModal(); loadFamily(); }).catch(function(e){ toast(errText(e)); });
+}
+var acts = {
+  warn: showWarn, close: closeModal, settings: openSettings,
+  reload: function(){ loadFamily(); },
+  foldall: function(){ var l = document.querySelectorAll('.set-sec'), any = Array.prototype.some.call(l, function(d){ return d.open; }); l.forEach(function(d){ d.open = !any; }); },
+  enable: function(){ var c = curCode(); enablePush(c, 'family', lsGet('each.' + c) === '1').then(paintPushStrip); },
+  test: function(){ var c = curCode(); currentSub().then(function(s){ return api('testPush', {code:c, role:'family', endpoint:s && s.endpoint}); }).then(function(d){ toast(d.sent ? '已送出，手機應該馬上跳出通知' : '送不出去，請重新開啟通知'); }).catch(function(e){ toast(errText(e)); }); },
+  elderOn: function(){ enablePush(lsGet('elder'), 'elder').then(function(){ closeModal(); }); },
+  elderOff: function(){ disablePush(lsGet('elder'), 'elder').then(function(){ closeModal(); toast('提醒關閉了'); }); },
+  unpair: function(){ if(!confirm('確定這支手機不再用來報平安嗎？紀錄不會被刪除。')) return; disablePush(lsGet('elder'), 'elder').then(function(){ lsDel('elder'); lsDel('elderNick'); lsDel('role'); E = null; go('#home'); }); },
+  saveTime: function(){ saveSettings({nickname:$('sNick').value, remindAt:$('sRm').value, deadline:$('sDl').value}, '時間改好了'); },
+  savePause: function(){ if(!$('sPause').value){ toast('請先選日期'); return; } saveSettings({pauseUntil:$('sPause').value}, '已暫停提醒'); },
+  clearPause: function(){ saveSettings({pauseUntil:''}, '已恢復提醒'); },
+  saveTel: function(){ var c = demo ? 'DEMO' : curCode(), v = $('sTel').value.trim(); if(demo){ toast('範例不會儲存'); return; } if(v) lsSet('tel.' + c, v); else lsDel('tel.' + c); toast('電話存在這支手機了'); closeModal(); paintFamily(); },
+  'export': function(){ var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({nickname:F.nickname, remindAt:F.remindAt, deadline:F.deadline, days:F.days}, null, 2)], {type:'application/json'})); a.download = '我很好紀錄.json'; a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000); },
+  leave: function(){ var c = curCode(); if(!confirm('這支手機不再追蹤，雲端資料和其他家人不受影響。確定嗎？')) return; disablePush(c, 'family').then(function(){ saveFamilies(families().filter(function(x){ return x.code !== c; })); lsDel('tel.' + c); lsDel('each.' + c); go(families().length ? '#family' : '#home'); }); },
+  'delete': function(){ var c = curCode(); if(!confirm('會刪除雲端上全部紀錄，長輩的連結也會失效，所有家人都看不到了。確定嗎？')) return; api('remove', {code:c}).then(function(){ saveFamilies(families().filter(function(x){ return x.code !== c; })); lsDel('tel.' + c); toast('已刪除'); go(families().length ? '#family' : '#home'); }).catch(function(e){ toast(errText(e)); }); },
+  install: function(){
+    var m = ios ? '請按 Safari 下方的「分享」圖示，選「加入主畫面」。從主畫面打開後要輸入一次配對碼。' : '請按瀏覽器右上角選單，選「加到主畫面」。';
+    if(window._dp){ window._dp.prompt(); window._dp.userChoice.then(function(){ window._dp = null; }); } else showInfo('加入主畫面', m);
+  }
+};
+document.addEventListener('click', function(e){
+  var t = e.target.closest ? e.target.closest('button,a,#modal') : null; if(!t) return;
+  if(t.id === 'modal'){ if(e.target === t) closeModal(); return; }
+  var d = t.dataset;
+  if(d.act && acts[d.act]) acts[d.act]();
+  else if(d.tab){ lsSet('cur', d.tab); viewFamily(); }
+  else if(d.scene){ demoScene(d.scene); loadFamily(); }
+  else if(d.day){ var i = $('dayInfo'); if(i) i.textContent = d.info; }
+  else if(d.fs){ lsSet('fs', d.fs); applyFs(); openSettings(); }
+  else if(d.sound){ lsSet('sound', d.sound); openSettings(); }
+  else if(d.each !== undefined){
+    var c = demo ? 'DEMO' : curCode(); lsSet('each.' + c, d.each);
+    if(!demo && isPushed(c)) enablePush(c, 'family', d.each === '1'); openSettings();
+  }
+  else if(d.copy){ (navigator.clipboard ? navigator.clipboard.writeText(d.copy) : Promise.reject()).then(function(){ toast('連結複製好了'); }).catch(function(){ prompt('請複製這個連結', d.copy); }); }
+  else if(d.qr){ showQr(d.qr, t); }
+});
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeModal(); });
+function showQr(url, btn){
+  var box = btn.closest('.stack').parentNode.querySelector('#qr');
+  function draw(){ var q = qrcode(0, 'M'); q.addData(url); q.make(); box.innerHTML = q.createSvgTag({cellSize:4, margin:2, scalable:true}); }
+  if(window.qrcode) return draw();
+  var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; s.onload = draw; s.onerror = function(){ toast('QR 碼載入失敗，請改用複製連結'); }; document.head.appendChild(s);
+}
+document.addEventListener('visibilitychange', function(){ if(document.hidden) return; if($('w')) loadElder(); else if(F && /family/.test(location.hash)) loadFamily(); });
+
+/* ---------- 跑馬燈 ---------- */
+function initMarquee(){
+  var URL_ = "https://script.google.com/macros/s/AKfycbwKX0DNNbY8y4nf90BFTHtxgfqJcHHcZasRrgycl4QAe52_hkjMWSkYk4xOsqU-JPCROw/exec";
+  var REFRESH = 20 * 60 * 1000, bar = $('marqueeBar'), track = $('marqueeTrack'), lastKey = null;
+  function appendText(c, text){ var re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, li = 0, m; while((m = re.exec(text))){ if(m.index > li) c.appendChild(document.createTextNode(text.slice(li, m.index))); var a = document.createElement('a'); a.href = m[2]; a.textContent = m[1]; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.style.color = 'inherit'; a.style.textDecoration = 'underline'; c.appendChild(a); li = re.lastIndex; } if(li < text.length) c.appendChild(document.createTextNode(text.slice(li))); }
+  function renderM(items){
+    if(!items || !items.length) return;
+    var k = JSON.stringify(items); if(k === lastKey) return; lastKey = k; track.innerHTML = '';
+    var fr = document.createDocumentFragment();
+    function pass(){ items.forEach(function(it, i){ if(i > 0) fr.appendChild(document.createTextNode('　★　')); appendText(fr, String(it)); }); }
+    pass(); fr.appendChild(document.createTextNode('　★　')); pass(); track.appendChild(fr);
+    bar.classList.add('show'); document.body.classList.add('has-marquee');
+    track.style.animationDuration = Math.max(track.scrollWidth / 2 / 60, 12) + 's';
+  }
+  function fetchM(){ fetch(URL_, {method:'POST', body:JSON.stringify({serial:''})}).then(function(r){ return r.json(); }).then(function(d){ if(d && Array.isArray(d.marquee) && d.marquee.length){ lsSet('marquee', JSON.stringify(d.marquee)); renderM(d.marquee); } }).catch(function(){}); }
+  renderM(lsJson('marquee', [])); fetchM(); setInterval(fetchM, REFRESH);
+}
+
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._dp = e; });
+if('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('service-worker.js').catch(function(){});
+applyFs(); initMarquee(); route();
+window._ifc = {route:route, get F(){ return F; }, get E(){ return E; }};
+</script>
+</body>
+</html>

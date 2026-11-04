@@ -1,0 +1,16 @@
+{
+  "name": "「我很好」每日報平安",
+  "short_name": "我很好",
+  "description": "長輩每天按一個按鈕報平安，過了時間沒按，家人的手機會收到通知",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#21406F",
+  "theme_color": "#21406F",
+  "lang": "zh-TW",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
