@@ -5,6 +5,13 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const SECOND_ALERT_MS = 2 * 3600e3;
 const KEEP_DAYS = 100;
 const IDLE_DELETE_DAYS = 180;
+// 免費方案每次排程只有 10 毫秒 CPU、50 次對外請求，一輪只做這麼多，做不完留給下一輪
+const SWEEP_PUSHES = 15;
+const SWEEP_ELDERS = 40;
+const SWEEP_CHUNK = 5;
+const MAX_PHONES = 30;
+const CLEANUP_UTC_HOUR = 19; // 台北凌晨三點
+const VAPID_REUSE_S = 6 * 3600;
 const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)notify\.windows\.com$/];
 
 const enc = new TextEncoder();
@@ -18,8 +25,14 @@ function newCode() {
 }
 const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 12);
 
+const tzFormats = new Map();
 function localNow(tz, at = Date.now()) {
-  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(at)).map((x) => [x.type, x.value]));
+  let f = tzFormats.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-CA', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    tzFormats.set(tz, f);
+  }
+  const p = Object.fromEntries(f.formatToParts(new Date(at)).map((x) => [x.type, x.value]));
   return { day: `${p.year}-${p.month}-${p.day}`, hm: `${p.hour}:${p.minute}` };
 }
 const addDays = (day, n) => new Date(Date.parse(day + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
@@ -46,13 +59,19 @@ async function encryptPayload(sub, text) {
   head.set(salt); new DataView(head.buffer).setUint32(16, 4096); head[20] = 65;
   return concat(head, asPub, body);
 }
+const vapidCache = new Map();
 async function vapidHeader(env, endpoint) {
+  const aud = new URL(endpoint).origin, nowS = Math.floor(Date.now() / 1000);
+  const cached = vapidCache.get(aud);
+  if (cached && cached.until > nowS) return cached.value;
   const pub = unb64u(env.VAPID_PUBLIC);
   const jwk = { kty: 'EC', crv: 'P-256', x: b64u(pub.slice(1, 33)), y: b64u(pub.slice(33, 65)), d: env.VAPID_PRIVATE, ext: true };
   const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
-  const data = b64u(enc.encode('{"typ":"JWT","alg":"ES256"}')) + '.' + b64u(enc.encode(JSON.stringify({ aud: new URL(endpoint).origin, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: env.SITE_URL })));
+  const data = b64u(enc.encode('{"typ":"JWT","alg":"ES256"}')) + '.' + b64u(enc.encode(JSON.stringify({ aud, exp: nowS + 12 * 3600, sub: env.SITE_URL })));
   const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc.encode(data));
-  return `vapid t=${data}.${b64u(sig)}, k=${env.VAPID_PUBLIC}`;
+  const value = `vapid t=${data}.${b64u(sig)}, k=${env.VAPID_PUBLIC}`;
+  vapidCache.set(aud, { value, until: nowS + VAPID_REUSE_S });
+  return value;
 }
 async function pushOne(env, sub, msg) {
   try {
@@ -243,29 +262,58 @@ const actions = {
 };
 
 // ---------- 排程：每 5 分鐘 ----------
-async function sweep(env) {
-  const { results } = await env.DB.prepare('SELECT * FROM elders').all();
-  const t = Date.now();
-  for (const e of results) {
-    const now = localNow(e.tz);
-    if (e.last_day === now.day || now.day < e.start_day) continue;
-    if (e.pause_until && now.day <= e.pause_until) continue;
-    if (now.hm >= e.deadline) {
-      const first = e.alert_day !== now.day;
-      const second = !first && e.alert_count === 1 && t - e.alert_at >= SECOND_ALERT_MS;
-      if (first || second) {
-        const sent = await pushRole(env, e.id, 'family', {
-          title: `${e.nickname}今天還沒報平安`,
-          body: first ? `過了 ${e.deadline} 還沒按「我很好」，打個電話問問吧。` : `到現在還是沒有按「我很好」，請聯絡${e.nickname}或附近的親友。`,
-          tag: 'late-' + e.id,
-        });
-        await env.DB.prepare('UPDATE elders SET alert_day=?,alert_count=?,alert_at=?,alert_sent=?,remind_day=? WHERE id=?').bind(now.day, first ? 1 : 2, t, sent, now.day, e.id).run();
-      }
-    } else if (now.hm >= e.remind_at && e.remind_day !== now.day) {
-      await pushRole(env, e.id, 'elder', { title: '今天按「我很好」了嗎？', body: '按一下，讓家人安心。', tag: 'remind' });
-      await env.DB.prepare('UPDATE elders SET remind_day=? WHERE id=?').bind(now.day, e.id).run();
+// 由資料庫挑出現在該處理的人，所以 Worker 的 CPU 不會隨總人數增加。kind：0 第一次通知家人、1 第二次、2 提醒長輩
+const DUE_SQL = `
+WITH zone AS (
+  SELECT json_extract(value,'$[0]') tz, json_extract(value,'$[1]') day, json_extract(value,'$[2]') hm FROM json_each(?1)
+)
+SELECT e.*, z.day today, CASE WHEN z.hm < e.deadline THEN 2 WHEN e.alert_day IS z.day THEN 1 ELSE 0 END kind
+FROM elders e JOIN zone z ON e.tz = z.tz
+WHERE e.last_day IS NOT z.day AND z.day >= e.start_day AND (e.pause_until IS NULL OR z.day > e.pause_until)
+  AND ((z.hm >= e.deadline AND (e.alert_day IS NOT z.day OR (e.alert_count = 1 AND e.alert_at <= ?2)))
+    OR (z.hm < e.deadline AND z.hm >= e.remind_at AND e.remind_day IS NOT z.day))
+ORDER BY kind, e.id LIMIT ?3`;
+
+function sweepMessage(e) {
+  if (e.kind === 2) return { title: '今天按「我很好」了嗎？', body: '按一下，讓家人安心。', tag: 'remind' };
+  return {
+    title: `${e.nickname}今天還沒報平安`,
+    body: e.kind === 0 ? `過了 ${e.deadline} 還沒按「我很好」，打個電話問問吧。` : `到現在還是沒有按「我很好」，請聯絡${e.nickname}或附近的親友。`,
+    tag: 'late-' + e.id,
+  };
+}
+function sweepWrite(env, e, sent, t) {
+  if (e.kind === 2) return env.DB.prepare('UPDATE elders SET remind_day=? WHERE id=?').bind(e.today, e.id);
+  return env.DB.prepare('UPDATE elders SET alert_day=?,alert_count=?,alert_at=?,alert_sent=?,remind_day=? WHERE id=?')
+    .bind(e.today, e.kind === 0 ? 1 : 2, t, sent, e.today, e.id);
+}
+async function sendDue(env, t) {
+  const { results: zones } = await env.DB.prepare('SELECT DISTINCT tz FROM elders').all();
+  const zoneNow = zones.map(({ tz }) => { const n = localNow(tz, t); return [tz, n.day, n.hm]; });
+  const { results: due } = await env.DB.prepare(DUE_SQL).bind(JSON.stringify(zoneNow), t - SECOND_ALERT_MS, SWEEP_ELDERS).all();
+  if (!due.length) return;
+  const { results: subs } = await env.DB.prepare('SELECT * FROM subs WHERE elder_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(due.map((e) => e.id))).all();
+  const phones = (e) => subs.filter((s) => s.elder_id === e.id && s.role === (e.kind === 2 ? 'elder' : 'family')).slice(0, MAX_PHONES);
+  let left = SWEEP_PUSHES, i = 0;
+  while (i < due.length && left > 0) {
+    const chunk = [];
+    while (i < due.length && chunk.length < SWEEP_CHUNK) {
+      const n = phones(due[i]).length;
+      if (chunk.length && n > left) break;
+      chunk.push(due[i++]);
+      left -= n;
     }
+    // 每批寫回一次：就算這一輪被中斷，已送出的人也不會重送
+    const writes = await Promise.all(chunk.map(async (e) => {
+      const msg = sweepMessage(e);
+      const done = await Promise.all(phones(e).map((s) => pushOne(env, s, msg)));
+      return sweepWrite(env, e, done.filter(Boolean).length, t);
+    }));
+    await env.DB.batch(writes);
   }
+}
+// 這幾句會掃過整張表，每輪都跑的話光 checkins 就吃掉每日讀取額度，所以一天一次
+async function cleanup(env, t) {
   const keep = new Date(t - KEEP_DAYS * 864e5).toISOString().slice(0, 10);
   const idle = t - IDLE_DELETE_DAYS * 864e5;
   await env.DB.batch([
@@ -274,6 +322,14 @@ async function sweep(env) {
     env.DB.prepare('DELETE FROM subs WHERE elder_id IN (SELECT id FROM elders WHERE last_seen<?)').bind(idle),
     env.DB.prepare('DELETE FROM elders WHERE last_seen<?').bind(idle),
   ]);
+}
+async function sweep(env, scheduledAt) {
+  const t = Date.now(), at = new Date(scheduledAt);
+  try {
+    await sendDue(env, t);
+  } finally {
+    if (at.getUTCHours() === CLEANUP_UTC_HOUR && at.getUTCMinutes() < 5) await cleanup(env, t);
+  }
 }
 
 // ---------- 進入點 ----------
@@ -298,5 +354,5 @@ export default {
       return json({ error: '伺服器暫時出問題，請稍後再試。' }, 500);
     }
   },
-  async scheduled(_, env, ctx) { ctx.waitUntil(sweep(env)); },
+  async scheduled(event, env, ctx) { ctx.waitUntil(sweep(env, event.scheduledTime)); },
 };

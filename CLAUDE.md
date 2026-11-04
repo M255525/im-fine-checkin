@@ -19,6 +19,7 @@
 - 通知＝Web Push（RFC 8291 aes128gcm＋VAPID），Worker 用 WebCrypto 手寫，不依賴套件。公鑰在 `wrangler.toml`，私鑰是 Worker secret `VAPID_PRIVATE`；本機備份 `worker/vapid.secret.json`（gitignore）。**換金鑰會讓所有現有訂閱失效**。
 - 訂閱網址限 FCM／Apple／Mozilla／Windows 的主機（防 SSRF），本機測試靠 `.dev.vars` 的 `ALLOW_LOCAL_PUSH=1`。
 - 排程 `sweep()`：`remind_at` 提醒長輩 → `deadline` 通知家人 → 2 小時後再一次。之後按了，所有家人收到解除通知（同 tag 取代警示）。平常只通知選「每次都通知」的人。
+- 排程容量：`DUE_SQL` 在資料庫挑出該處理的人，Worker CPU 不隨總人數增加。免費方案每次排程只有 10 毫秒 CPU、50 次對外請求，所以一輪最多 15 則推播、40 位長輩（`SWEEP_PUSHES`／`SWEEP_ELDERS`），做不完下一輪接著送；順序是第一次通知家人→第二次→提醒長輩。每 5 位寫回一次，中斷也不重送。每位長輩每輪最多送 30 支手機（`MAX_PHONES`）。清理會掃整張 `checkins`，只在台北凌晨 3 點跑，**不要改回每輪都跑**（會吃光每日讀取額度）。
 - 當天過了 deadline 才建立的，`start_day` 設隔天，不誤報。「今天」以長輩時區（`tz`）計。
 - 離線按：寫 `ifc.pending`，恢復後用原本時間補送（36 小時內有效）。畫面要說「還沒送出」。
 - 資料保留：`checkins` 100 天；180 天沒人用（`last_seen`）整組刪除。手冊與警語都寫了這些數字，改了要同步。
@@ -31,5 +32,6 @@
 
 ## 測試
 - 後端：`cd worker && npx wrangler d1 execute im-fine-checkin --local --file=schema.sql`，`npx wrangler dev --port 8799 --ip 127.0.0.1 --test-scheduled`，再 `node tools/test_worker.mjs`（假推播伺服器實際解密並驗 VAPID 簽章，需台北時間 00:03 後跑）。
+- 排程負載：同一個 wrangler dev（`--port 8863`）跑 `API=http://127.0.0.1:8863 node tools/test_sweep_load.mjs`，會清空本機 D1。要指定排程時間得打 `/cdn-cgi/handler/scheduled?time=毫秒`，`/__scheduled` 會忽略 `time`。
 - 驗證真實通知：Windows 上 `registration.getNotifications()` 查不到原生通知，會誤判成沒收到。要在 SW 暫時記錄 push 事件才準。Playwright 用 `channel='chrome'`。
 - 已驗：Worker → FCM → Chrome SW → 解密 → 通知，5 秒內。**未驗：Apple 推播（iPhone 真機）**。

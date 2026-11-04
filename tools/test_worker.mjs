@@ -3,7 +3,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 
-const API = 'http://127.0.0.1:8799';
+const API = process.env.API || 'http://127.0.0.1:8799';
 const b64 = (b) => Buffer.from(b).toString('base64url');
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') + m); };
