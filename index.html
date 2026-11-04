@@ -457,6 +457,7 @@ function facadeHtml(){
   F.days.forEach(function(d){ map[d.day] = d.at; });
   var rows = '';
   for(var w = 0; w < 5; w++){
+    if(addDays(start, w * 7 + 6) < F.createdDay) continue;
     rows += '<div class="wk">';
     for(var i = 0; i < 7; i++){
       var day = addDays(start, w * 7 + i), dd = Number(day.slice(8)), at = map[day], cls = 'd';
