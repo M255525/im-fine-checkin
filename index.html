@@ -386,7 +386,7 @@ function loadElder(){
   var code = demo ? 'DEMO' : lsGet('elder');
   flushPending();
   api('elder', {code:code}).then(function(d){ E = d; lsSet('elderNick', d.nickname); paintElder(); }).catch(function(e){
-    if(e.status === 404){ lsDel('elder'); lsDel('role'); showInfo('這組配對已經刪除', '請家人重新傳連結給您。'); go('#home'); return; }
+    if(e.status === 404){ lsDel('elder'); lsDel('elderNick'); lsDel('role'); E = null; history.replaceState(null, '', location.pathname + '#home'); route(); showInfo('這組配對已經刪除', '請家人重新傳連結給您。'); return; }
     if(E && E.today !== localDay()){ E.today = localDay(); E.checkedAt = null; paintElder(); }
   });
 }
