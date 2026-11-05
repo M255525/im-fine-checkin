@@ -160,6 +160,8 @@ body:has(#entryGate:not(.hidden)){overflow:hidden}
 .lic.ok{color:#14632F;border-color:#14632F;background:#E6F4E9}
 .lic.bad{color:#A32019;border-color:#A32019;background:#FBE9E7}
 #entryGateHeadcount:empty,#headcountBadge:empty{display:none}
+#licWarn{display:none;background:var(--lamp-soft);color:var(--ink);font-size:.8rem;font-weight:700;line-height:1.5;padding:.45rem .8rem;text-align:center;border-bottom:3px solid var(--lamp)}
+#licWarn.show{display:block}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}#marqueeTrack{animation-duration:90s!important}}
 @media (min-width:900px){.wall #app{max-width:600px}}
 </style>
@@ -180,6 +182,7 @@ body:has(#entryGate:not(.hidden)){overflow:hidden}
   </div>
 </div>
 <div id="marqueeBar"><div id="marqueeTrack"></div></div>
+<div id="licWarn" role="status"></div>
 <div id="app"></div>
 <div id="modal" role="dialog" aria-modal="true"><div class="box" id="modalBox"></div></div>
 <div id="toast" role="status"></div>
@@ -649,7 +652,7 @@ function initMarquee(){
    第一次登入 fail-closed。已登入過的手機直接開啟、背景驗證，只有序號確定無效才上鎖：
    長輩每天要按，開啟時連不上驗證就擋住的話，長輩按不了、家人反而收到沒按的通知，離線補送也會失效。 */
 var LICENSE_CHECK_URL = 'https://script.google.com/macros/s/AKfycbxXMdRnM6c_oDgv0K7YAXHLGrsERXmADt77ZZHEXkxZd88W5-Cyex4Py6p-dOt33gVamQ/exec';
-var LICENSE_SHEET = '每日報平安', RECHECK_MS = 20 * 60 * 1000;
+var LICENSE_SHEET = '每日報平安', RECHECK_MS = 20 * 60 * 1000, WARN_DAYS = 30;
 var gateInfo = {cls:'', text:'尚未驗證', hcls:'', head:''};
 var REASON_LABEL = {
   missing_serial:'請輸入登入序號',
@@ -698,14 +701,20 @@ function gateDays(l){
   if(!l.expiresAt) return '序號有效';
   return '序號有效，還可以用 ' + Math.max(Math.ceil((new Date(l.expiresAt) - new Date(Date.now())) / 86400000), 0) + ' 天';
 }
+function gateExpiryNote(l){   // 到期前 30 天提醒：過期後長輩按不了，家人會收到沒按的通知，要留時間換序號
+  var e = $('licWarn'), d = l && l.expiresAt ? Math.ceil((new Date(l.expiresAt) - new Date(Date.now())) / 86400000) : null;
+  var on = d !== null && d <= WARN_DAYS;
+  e.textContent = on ? (d > 0 ? '登入序號再 ' + d + ' 天到期' : '登入序號今天到期') + '。到期後就不能報平安了，請聯絡家人換新序號。' : '';
+  e.classList.toggle('show', on);
+}
 function gateUnlock(l){
-  gateStatus('ok', '✓ ' + gateDays(l)); gateHead(l);
+  gateStatus('ok', '✓ ' + gateDays(l)); gateHead(l); gateExpiryNote(l);
   $('entryGate').classList.add('hidden');
   var first = !gateOpen; gateOpen = true;
   if(first) route();
 }
 function gateLock(text, l){
-  gateOpen = false; clearInterval(timer); closeModal();
+  gateOpen = false; clearInterval(timer); closeModal(); gateExpiryNote(null);
   gateStatus('bad', '✗ ' + text); gateHead(l && l.reason === 'headcount_exceeded' ? l : null);
   $('entryGate').classList.remove('hidden');
 }

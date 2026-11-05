@@ -1,5 +1,5 @@
 // 加入主畫面＋收通知。network-first＋同源快取備援，不快取跨網域請求。
-const CACHE_NAME = 'im-fine-checkin-shell-v4';
+const CACHE_NAME = 'im-fine-checkin-shell-v5';
 const API = 'https://im-fine-checkin.content-workflow.workers.dev';
 const SHELL_FILES = [
   './',
