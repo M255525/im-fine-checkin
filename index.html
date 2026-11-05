@@ -144,11 +144,41 @@ body:not(.wall) .gear{background:var(--paper);box-shadow:inset 0 0 0 2px var(--l
 #toast.show{display:block}
 #qr{display:grid;place-items:center;margin-top:.5rem}
 #qr img,#qr svg{width:220px;height:220px;background:#fff;padding:8px}
+/* 登入序號閘門 */
+#entryGate{position:fixed;inset:0;background:var(--night);z-index:3200;display:flex;padding:16px;overflow:auto;color:var(--ink)}
+#entryGate.hidden{display:none}
+body:has(#entryGate:not(.hidden)){overflow:hidden}
+.gate-box{background:var(--paper);border:4px solid var(--lamp);border-radius:1rem;padding:1.2rem 1rem;width:460px;max-width:100%;text-align:center;margin:auto}
+.gate-box h2{font-family:var(--disp);font-size:1.4rem;margin:0 0 .4rem}
+.gate-box p{margin:.4rem 0}
+.gate-desc{font-size:.9rem}
+.gate-row{display:flex;gap:.35rem;margin:.5rem 0}
+#entryGateSerial{flex:1 1 0;min-width:0;min-height:3.2rem;font:inherit;font-weight:700;text-align:center;padding:.3rem .5rem;border:2px solid var(--line);border-radius:.6rem;background:#fff;color:#111}
+#btnEntryGateToggle{flex:none;width:auto;min-height:3.2rem;font-size:.8rem;padding-left:.5rem;padding-right:.5rem}
+.gate-foot{font-size:.75rem;margin-top:.7rem!important}
+.lic{display:inline-block;font-size:.8rem;font-weight:700;padding:.25rem .6rem;border-radius:.6rem;border:2px solid var(--line);margin-top:.5rem;overflow-wrap:anywhere}
+.lic.ok{color:#14632F;border-color:#14632F;background:#E6F4E9}
+.lic.bad{color:#A32019;border-color:#A32019;background:#FBE9E7}
+#entryGateHeadcount:empty,#headcountBadge:empty{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}#marqueeTrack{animation-duration:90s!important}}
 @media (min-width:900px){.wall #app{max-width:600px}}
 </style>
 </head>
 <body>
+<div id="entryGate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+  <div class="gate-box">
+    <h2 id="gateTitle">「我很好」每日報平安</h2>
+    <p class="gate-desc">請輸入登入序號，再按「確認」。這支手機會記住，之後不用再輸入。序號自第一次驗證起可以用 12 個月。</p>
+    <div class="gate-row">
+      <input type="password" id="entryGateSerial" placeholder="請輸入登入序號" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="登入序號">
+      <button class="btn alt" type="button" id="btnEntryGateToggle" aria-pressed="false" aria-label="顯示序號">👁 顯示</button>
+    </div>
+    <button class="btn" type="button" id="btnEntryGateConfirm">確認</button>
+    <span id="entryGateStatus" class="lic" role="status">尚未驗證</span>
+    <div><span id="entryGateHeadcount" class="lic" aria-live="polite"></span></div>
+    <p class="gate-foot">沒有序號？請洽 <a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a>｜<a href="manual.html" target="_blank" rel="noopener">📖 操作手冊</a></p>
+  </div>
+</div>
 <div id="marqueeBar"><div id="marqueeTrack"></div></div>
 <div id="app"></div>
 <div id="modal" role="dialog" aria-modal="true"><div class="box" id="modalBox"></div></div>
@@ -156,6 +186,7 @@ body:not(.wall) .gear{background:var(--paper);box-shadow:inset 0 0 0 2px var(--l
 <script>
 var API = 'https://im-fine-checkin.content-workflow.workers.dev';
 var PREFIX = 'ifc.';
+var gateOpen = false;   // 登入序號通過才 true；false 時不呼叫 Worker
 var BASE = location.origin + location.pathname.replace(/index\.html$/, '');
 var GRILLE = '<svg viewBox="0 0 300 380" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5"><path d="M30 0v380M75 0v380M120 0v380M180 0v380M225 0v380M270 0v380"/><path d="M0 62h300M0 318h300" stroke-width="7"/><path d="M0 20h300M0 360h300"/><path d="M30 41l22-21 23 21-23 21zM120 41l30-21 30 21-30 21zM225 41l22-21 23 21-23 21zM30 339l22-21 23 21-23 21zM120 339l30-21 30 21-30 21zM225 339l22-21 23 21-23 21z"/></g></svg>';
 var ROOF = '<svg class="roof" viewBox="0 0 400 46" preserveAspectRatio="xMidYMax meet" aria-hidden="true"><g fill="currentColor"><rect x="284" y="6" width="64" height="30" rx="5"/><rect x="292" y="36" width="5" height="10"/><rect x="335" y="36" width="5" height="10"/><rect x="60" y="4" width="4" height="42"/><rect x="44" y="12" width="36" height="3"/><rect x="50" y="20" width="24" height="3"/></g></svg>';
@@ -210,6 +241,7 @@ function demoApi(a, b){
 }
 function api(a, b){
   if(demo) return Promise.resolve(demoApi(a, b || {}));
+  if(!gateOpen) return Promise.reject(new Error('locked'));
   return fetch(API + '/api/' + a, {method:'POST', body:JSON.stringify(b || {})}).then(function(r){
     return r.json().then(function(d){ if(!r.ok){ var e = new Error(d.error || '發生錯誤'); e.status = r.status; throw e; } return d; });
   });
@@ -275,6 +307,7 @@ function defaultRoute(){
 }
 var timer = null;
 function route(){
+  if(!gateOpen) return;
   readLinkHash();
   clearInterval(timer); closeModal();
   var h = location.hash || defaultRoute();
@@ -530,7 +563,7 @@ function settingsHtml(){
       s += sec('data', '資料', '', '<div class="stack"><button class="btn alt" data-act="export">下載紀錄（JSON）</button><button class="btn alt" data-act="leave">這支手機不再追蹤' + n + '</button><button class="btn danger" data-act="delete">刪除' + n + '的全部資料</button></div>');
     }
   }
-  return s + aboutSec();
+  return s + licSec() + aboutSec();
 }
 function openSettings(){
   openModal(settingsHtml());
@@ -591,7 +624,7 @@ function showQr(url, btn){
   if(window.qrcode) return draw();
   var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'; s.onload = draw; s.onerror = function(){ toast('QR 碼載入失敗，請改用複製連結'); }; document.head.appendChild(s);
 }
-document.addEventListener('visibilitychange', function(){ if(document.hidden) return; if($('w')) loadElder(); else if(F && /family/.test(location.hash)) loadFamily(); });
+document.addEventListener('visibilitychange', function(){ if(document.hidden || !gateOpen) return; if($('w')) loadElder(); else if(F && /family/.test(location.hash)) loadFamily(); });
 
 /* ---------- 跑馬燈 ---------- */
 function initMarquee(){
@@ -611,10 +644,113 @@ function initMarquee(){
   renderM(lsJson('marquee', [])); fetchM(); setInterval(fetchM, REFRESH);
 }
 
+/* ---------- 登入序號閘門（比照內容工作流工作室、交通出門助手）----------
+   序號存在試算表「樂齡工具」的分頁「每日報平安」，和交通出門助手共用同一支 Apps Script，用 sheet 指定分頁。
+   第一次登入 fail-closed。已登入過的手機直接開啟、背景驗證，只有序號確定無效才上鎖：
+   長輩每天要按，開啟時連不上驗證就擋住的話，長輩按不了、家人反而收到沒按的通知，離線補送也會失效。 */
+var LICENSE_CHECK_URL = 'https://script.google.com/macros/s/AKfycbxXMdRnM6c_oDgv0K7YAXHLGrsERXmADt77ZZHEXkxZd88W5-Cyex4Py6p-dOt33gVamQ/exec';
+var LICENSE_SHEET = '每日報平安', RECHECK_MS = 20 * 60 * 1000;
+var gateInfo = {cls:'', text:'尚未驗證', hcls:'', head:''};
+var REASON_LABEL = {
+  missing_serial:'請輸入登入序號',
+  serial_not_found:'查無此序號，請確認有沒有打錯',
+  expired:'這組序號已經過期了，請聯絡家人',
+  network_error:'連不上網路，請確認網路後再按一次確認',
+  server_error:'驗證暫時失敗，請等一下再試'
+};
+function gateClient(){
+  var id = lsGet('entryClient');
+  if(!id){ id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2); lsSet('entryClient', id); }
+  return id;
+}
+function gateStatus(cls, text){
+  gateInfo.cls = cls; gateInfo.text = text;
+  var e = $('entryGateStatus'); e.className = 'lic ' + cls; e.textContent = text;
+  var b = $('licBadge'); if(b){ b.className = 'lic ' + cls; b.textContent = text; }
+}
+function gateHead(l){
+  var limited = l && typeof l.headcountLimit === 'number', free = l && l.valid && !limited, left = limited ? Math.max(l.headcountRemaining || 0, 0) : 0;
+  gateInfo.head = !l ? '' : free ? '此序號不限登入人數' : limited ? '此序號還可登入 ' + left + ' 人（上限 ' + l.headcountLimit + ' 人）' : '';
+  gateInfo.hcls = free || left > 0 ? 'ok' : 'bad';
+  $('entryGateHeadcount').textContent = l && l.reason === 'headcount_exceeded' ? gateInfo.head : '';
+  var b = $('headcountBadge'); if(b){ b.className = 'lic ' + gateInfo.hcls; b.textContent = gateInfo.head; }
+}
+function checkLicense(serial, attempt, renew){
+  attempt = attempt || 1;
+  var ctl = window.AbortController ? new AbortController() : null, tm = ctl && setTimeout(function(){ ctl.abort(); }, 20000);
+  // Apps Script 不回應 OPTIONS 預檢，所以不設 Content-Type
+  return fetch(LICENSE_CHECK_URL, {method:'POST', body:JSON.stringify({serial:serial, sheet:LICENSE_SHEET, clientId:gateClient(), renew:!!renew}), signal:ctl ? ctl.signal : undefined}).catch(function(){
+    throw new Error(REASON_LABEL.network_error);
+  }).then(function(r){
+    clearTimeout(tm);
+    if(!r.ok) throw new Error(REASON_LABEL.server_error);
+    return r.text();
+  }).then(function(t){
+    var d; try{ d = JSON.parse(t); }catch(e){ d = null; }
+    if(!d || typeof d.valid !== 'boolean'){
+      if(attempt < 3) return checkLicense(serial, attempt + 1, renew);
+      throw new Error(REASON_LABEL.server_error);
+    }
+    return d;
+  });
+}
+function gateDays(l){
+  if(!l.expiresAt) return '序號有效';
+  return '序號有效，還可以用 ' + Math.max(Math.ceil((new Date(l.expiresAt) - new Date(Date.now())) / 86400000), 0) + ' 天';
+}
+function gateUnlock(l){
+  gateStatus('ok', '✓ ' + gateDays(l)); gateHead(l);
+  $('entryGate').classList.add('hidden');
+  var first = !gateOpen; gateOpen = true;
+  if(first) route();
+}
+function gateLock(text, l){
+  gateOpen = false; clearInterval(timer); closeModal();
+  gateStatus('bad', '✗ ' + text); gateHead(l && l.reason === 'headcount_exceeded' ? l : null);
+  $('entryGate').classList.remove('hidden');
+}
+function gateRun(serial, renew){
+  if(!serial){ gateLock(REASON_LABEL.missing_serial); return Promise.resolve(); }
+  return checkLicense(serial, 1, renew).then(function(l){
+    if(l.valid) gateUnlock(l);
+    else if(l.reason === 'server_error' && gateOpen) return;
+    else gateLock(REASON_LABEL[l.reason] || l.message || '序號驗證失敗', l);
+  }).catch(function(e){ if(!gateOpen) gateLock(e.message); });
+}
+function gateRenew(){ var s = lsGet('entrySerial'); if(s && gateOpen) gateRun(s, true); }
+function gateRelease(serial){
+  if(!serial || !navigator.sendBeacon) return;
+  try{ navigator.sendBeacon(LICENSE_CHECK_URL, new Blob([JSON.stringify({serial:serial, sheet:LICENSE_SHEET, clientId:gateClient(), release:true})], {type:'text/plain'})); }catch(e){}
+}
+function licSec(){
+  return sec('lic', '登入序號', gateOpen ? '已登入' : '', '<span id="licBadge" class="lic ' + gateInfo.cls + '">' + esc(gateInfo.text) + '</span><div><span id="headcountBadge" class="lic ' + gateInfo.hcls + '">' + esc(gateInfo.head) + '</span></div><p class="small">登出後，這支手機要重新輸入序號才能報平安。</p><button class="btn alt" data-act="logout">登出</button>');
+}
+acts.logout = function(){
+  if(!confirm('登出後要重新輸入序號才能使用，沒按的話家人還是會收到通知。要登出嗎？')) return;
+  gateRelease(lsGet('entrySerial')); lsDel('entrySerial');
+  $('entryGateSerial').value = ''; gateLock('已登出，請輸入登入序號');
+};
+function initGate(){
+  var input = $('entryGateSerial'), btn = $('btnEntryGateConfirm'), saved = lsGet('entrySerial');
+  function maskSerial(hide){   // 預設隱藏，免得旁人看到；要核對時才按顯示
+    var t = $('btnEntryGateToggle');
+    input.type = hide ? 'password' : 'text';
+    t.textContent = hide ? '👁 顯示' : '🙈 隱藏';
+    t.setAttribute('aria-pressed', String(!hide)); t.setAttribute('aria-label', hide ? '顯示序號' : '隱藏序號');
+  }
+  $('btnEntryGateToggle').onclick = function(){ maskSerial(input.type === 'text'); };
+  btn.onclick = function(){ maskSerial(true); var s = input.value.trim(); lsSet('entrySerial', s); gateStatus('', '驗證中…'); gateRun(s, false); };
+  input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); btn.click(); } });
+  input.value = saved || '';
+  setInterval(gateRenew, RECHECK_MS);
+  window.addEventListener('pagehide', function(){ gateRelease(lsGet('entrySerial')); });   // 送不出去也沒關係，後端 40 分鐘逾時兜底
+  if(saved){ gateOpen = true; $('entryGate').classList.add('hidden'); gateStatus('', '這支手機已登入'); route(); gateRun(saved, true); }
+}
+
 window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._dp = e; });
 if('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('service-worker.js').catch(function(){});
-applyFs(); initMarquee(); route();
-window._ifc = {route:route, get F(){ return F; }, get E(){ return E; }};
+applyFs(); initMarquee(); initGate();
+window._ifc = {route:route, gateRun:gateRun, gateRenew:gateRenew, get F(){ return F; }, get E(){ return E; }};
 </script>
 </body>
 </html>

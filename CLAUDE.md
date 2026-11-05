@@ -6,8 +6,16 @@
 - 後端：Cloudflare Worker `im-fine-checkin`（`worker/`，**不隨 git push 部署**，改完要 `cd worker && npx wrangler deploy`）＋D1 `im-fine-checkin`＋排程每 5 分鐘。網址 <https://im-fine-checkin.content-workflow.workers.dev>。
 - 本機預覽 port **8860**（8852 被 next-bus-helper 占用）；Worker CORS 只放行 Pages 與 8860，換埠要改 `cors()`。
 
+## 登入序號閘門（2026-11-05，使用者要求比照交通出門助手）
+- 序號表：試算表「樂齡工具」（`1Yc2nKmGUmZBfWfZFTKcADKh5w4x-56DYygQudzxtdMg`）分頁 **「每日報平安」**，12 個月，選填人數限制。
+- **後端共用** `next-bus-helper/gas/` 那支綁定腳本與部署網址，前端每次都帶 `sheet:'每日報平安'`（`release` 也要帶），不用另外授權。改後端要在 next-bus-helper 改，兩個工具都會受影響。
+- `#entryGate` 擋住整個工具；`gateOpen` 為 false 時 `route()`／`api()` 不執行，不呼叫 Worker。
+- **和交通出門助手不同**：已登入過的手機（有 `ifc.entrySerial`）直接開啟、背景驗證，只有序號確定無效才上鎖，連線失敗或 server_error 都不擋。原因：長輩開啟時連不上驗證就被擋的話按不了，家人會誤收沒按通知，離線補送也失效。第一次登入仍 fail-closed。
+- ⚠ 序號過期或被刪除後長輩按不了，但 Worker 排程照跑，家人每天會收到沒按通知，這是已知後果；手冊已寫。Worker 不驗序號，前端閘門懂技術的人可繞過。
+- 序號欄預設隱藏，按「👁 顯示」才明碼，按確認自動遮回。登出在 ⚙ 常用設定「登入序號」。
+
 ## 設計原則
-- 長輩畫面只做一件事：整扇窗就是按鈕。不要加分頁、表單、登入。第二個動作只有「請家人打電話給我」。
+- 長輩畫面只做一件事：整扇窗就是按鈕。不要加分頁、表單（登入序號是使用者要求的例外，只在第一次出現）。第二個動作只有「請家人打電話給我」。
 - 視覺＝台灣老公寓：深藍二丁掛磁磚牆、鐵窗、藍底白字門牌、燈黃。家人畫面的公寓立面一扇窗一天。字體霞鶩文楷 TC＋Noto Sans TC。不要改回撕日曆（兩個姊妹專案已用）。
 - 文案不嚇人：沒按「可能只是忘了」。不可宣稱保證送達、不可說成緊急救援或醫療監護。
 - 送不到要講實話：`callMe` 回 `sent` 0、`alert.sent` 0 都要顯示，不要假裝成功。
