@@ -144,6 +144,24 @@ body:not(.wall) .gear{background:var(--paper);box-shadow:inset 0 0 0 2px var(--l
 #toast.show{display:block}
 #qr{display:grid;place-items:center;margin-top:.5rem}
 #qr img,#qr svg{width:220px;height:220px;background:#fff;padding:8px}
+/* 示範案例 */
+body.case #app{max-width:980px}
+.cs-grid{display:grid;gap:.7rem;margin-top:.6rem}
+@media (min-width:900px){.cs-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}}
+.cs-ph{min-width:0;scroll-margin-top:calc(var(--mq) + 8px);padding:.7rem;border-radius:.9rem;background:var(--paper);box-shadow:0 0 0 2px var(--line)}
+.cs-ph.el{background:var(--tile);color:#fff;box-shadow:none}
+.cs-ph.el .small{color:#D5E2F2}
+.cs-ph>h2{margin:0 0 .4rem;font-size:1.05rem}
+.cs-nt{margin:.4rem 0;padding:.45rem .7rem;border-radius:.6rem;background:#fff;color:var(--ink);box-shadow:0 0 0 3px var(--lamp);font-size:.85rem;line-height:1.45}
+.cs-nt b{display:block}
+.cs-ph .cs-nt .small{color:var(--sub)}
+.cs-none{margin:.4rem 0}
+.cs-hint{outline:5px solid var(--lamp);outline-offset:3px}
+.cs-log{margin:.3rem 0 0;padding-left:1.2em;font-size:.85rem}
+.cs-bar{position:sticky;bottom:env(safe-area-inset-bottom,0px);z-index:5;margin-top:.7rem;padding:.55rem .7rem;border-radius:.8rem;background:var(--night);color:#fff}
+.cs-now{display:flex;align-items:baseline;gap:.6rem}
+.cs-now b{font-size:1.5rem;font-variant-numeric:tabular-nums}
+.cs-bar p{margin:.15rem 0 .4rem;font-size:.85rem;line-height:1.45}
 /* 登入序號閘門 */
 #entryGate{position:fixed;inset:0;background:var(--night);z-index:3200;display:flex;padding:16px;overflow:auto;color:var(--ink)}
 #entryGate.hidden{display:none}
@@ -178,6 +196,7 @@ body:has(#entryGate:not(.hidden)){overflow:hidden}
     <button class="btn" type="button" id="btnEntryGateConfirm">確認</button>
     <span id="entryGateStatus" class="lic" role="status">尚未驗證</span>
     <div><span id="entryGateHeadcount" class="lic" aria-live="polite"></span></div>
+    <a class="btn alt" href="#demo-case" style="margin-top:.6rem">先看示範案例（不用序號）</a>
     <p class="gate-foot">沒有序號？請洽 <a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a>｜<a href="manual.html" target="_blank" rel="noopener">📖 操作手冊</a></p>
   </div>
 </div>
@@ -309,15 +328,19 @@ function defaultRoute(){
   return '#home';
 }
 var timer = null;
+function freeHash(){ return location.hash === '#demo-case'; }   // 示範案例全在前端，不碰 Worker，沒序號也能看
 function route(){
-  if(!gateOpen) return;
+  $('entryGate').classList.toggle('hidden', gateOpen || freeHash());
+  if(!gateOpen && !freeHash()) return;
   readLinkHash();
   clearInterval(timer); closeModal();
   var h = location.hash || defaultRoute();
   demo = /^#demo-/.test(h) ? (demo || demoData()) : null;
   document.body.classList.toggle('wall', h === '#home' || h === '#elder' || h === '#demo-elder');
+  document.body.classList.toggle('case', h === '#demo-case');
   window.scrollTo(0, 0);
-  if(h === '#elder' || h === '#demo-elder') viewElder();
+  if(h === '#demo-case') viewCase();
+  else if(h === '#elder' || h === '#demo-elder') viewElder();
   else if(h === '#family' || h === '#demo-family') viewFamily();
   else if(h === '#setup') viewSetup();
   else if(h === '#pair') viewPair();
@@ -334,6 +357,7 @@ function viewHome(){
     '<button class="win mini" id="hw" aria-label="按按看：點亮窗戶">' + GRILLE + '<span class="say">我很好</span></button>' +
     '<div class="stack"><a class="btn lamp" href="#setup">幫爸媽設定</a>' +
     '<a class="btn alt" href="#pair">我有配對碼</a>' +
+    '<a class="btn alt" href="#demo-case">示範案例：模擬一天</a>' +
     '<div class="row2"><a class="btn alt" href="#demo-elder">看長輩畫面</a><a class="btn alt" href="#demo-family">看家人畫面</a></div></div>' +
     '<div class="card" style="margin-top:.7rem;color:var(--ink)"><b>怎麼用</b><ol class="steps"><li>子女設定時間，把連結傳給長輩。</li><li>長輩每天打開，按窗戶上的「我很好」。</li><li>過了時間還沒按，家人手機跳出通知。</li></ol></div>' +
     footHtml();
@@ -435,7 +459,10 @@ function paintElder(){
   w.classList.toggle('lit', done || !!queued); w.disabled = done || !!queued;
   w.setAttribute('aria-label', done ? '今天已經報平安了' : '按一下，告訴家人我很好');
   $('say').textContent = done || queued ? '今天很好' : '我很好';
-  $('msg').innerHTML = done ? '<b>已經告訴家人了</b><span class="small">今天 ' + fmtTime(E.checkedAt, E.tz) + ' 按的，明天再按一次就好。</span>'
+  $('msg').innerHTML = elderMsg(done && fmtTime(E.checkedAt, E.tz), queued);
+}
+function elderMsg(time, queued){
+  return time ? '<b>已經告訴家人了</b><span class="small">今天 ' + time + ' 按的，明天再按一次就好。</span>'
     : queued ? '<b>網路不通，還沒送出</b><span class="small">網路恢復後會自動告訴家人，不用再按。</span>'
     : '<b>今天還沒按</b><span class="small">按一下窗戶，告訴家人今天很好。</span>';
 }
@@ -532,6 +559,143 @@ function paintPushStrip(){
   });
 }
 
+/* ---------- 示範案例：模擬一天，全在前端，不連 Worker、不發真通知 ----------
+   規則對照 worker/src/index.js 的 sweep()／dailyState()，通知文字也要一致，改 Worker 時一起改。 */
+var CASE_REMIND = '09:00', CASE_DEADLINE = '11:00', CASE_SECOND = '13:00', CASE_NICK = '媽媽';
+var CASES = [
+  {id:'normal', name:'平常的一天', goal:'媽媽看到提醒就按了，家人整天不會被打擾。', steps:[
+    {at:'09:00', btn:'快轉到 09:00', see:'媽媽的手機跳出提醒，家人的手機沒有動靜。'},
+    {at:'09:12', act:'press', btn:'09:12 媽媽按「我很好」', see:'窗戶亮了，家人畫面變成已報平安。'},
+    {at:'11:00', btn:'快轉到 11:00', see:'已經按過，到了通知時間也不會通知家人。'}]},
+  {id:'forgot', name:'忘了按，後來補按', goal:'過了時間才按，家人收到的通知會換成「報平安了」。', steps:[
+    {at:'09:00', btn:'快轉到 09:00', see:'媽媽的手機跳出提醒。'},
+    {at:'11:00', btn:'快轉到 11:00', see:'家人收到「今天還沒報平安」，畫面變紅。'},
+    {at:'11:25', act:'press', btn:'11:25 媽媽按「我很好」', see:'家人的通知換成「報平安了」，畫面恢復。'}]},
+  {id:'silent', name:'一直沒按', goal:'過了時間沒按，兩小時後再通知一次，之後就不再通知。', steps:[
+    {at:'09:00', btn:'快轉到 09:00', see:'媽媽的手機跳出提醒。'},
+    {at:'11:00', btn:'快轉到 11:00', see:'家人收到第一次通知。'},
+    {at:'13:00', btn:'快轉到 13:00', see:'家人的通知換成第二次的內容，請聯絡媽媽或附近的親友。'},
+    {at:'18:00', btn:'快轉到 18:00', see:'不會再通知了。今天這扇窗一直是暗的。'}]},
+  {id:'call', name:'想接到家人電話', goal:'媽媽按了「請家人打電話給我」，家人馬上收到。', steps:[
+    {at:'09:05', act:'press', btn:'09:05 媽媽按「我很好」', see:'媽媽收到提醒後先報平安。'},
+    {at:'10:30', act:'call', btn:'10:30 媽媽按「請家人打電話給我」', see:'家人收到「想接到您的電話」，畫面也會顯示。'}]},
+  {id:'pause', name:'暫停提醒', goal:'媽媽出遊時家人先暫停，當天沒按也不會有任何通知。', steps:[
+    {at:'08:30', act:'pause', btn:'08:30 家人設定暫停 3 天', see:'家人畫面顯示暫停提醒中。'},
+    {at:'09:00', btn:'快轉到 09:00', see:'暫停期間，媽媽不會收到提醒。'},
+    {at:'11:00', btn:'快轉到 11:00', see:'過了時間也不會通知家人。'}]},
+  {id:'offline', name:'網路不通時按', goal:'沒網路也能按，網路恢復後用原本的時間補送。', steps:[
+    {at:'09:00', btn:'快轉到 09:00', see:'媽媽的手機跳出提醒。'},
+    {at:'09:15', act:'netOff', btn:'09:15 媽媽的手機斷網', see:'媽媽的手機連不上網路。'},
+    {at:'09:20', act:'press', btn:'09:20 媽媽按「我很好」', see:'畫面說「還沒送出」，家人畫面還是沒按。'},
+    {at:'10:40', act:'netOn', btn:'10:40 網路恢復', see:'自動補送，家人畫面顯示 09:20 報平安。'}]},
+  {id:'nopush', name:'家人沒開通知', goal:'通知送不到時要講實話，不假裝成功。', noPush:true, steps:[
+    {at:'09:00', btn:'快轉到 09:00', see:'媽媽的手機跳出提醒。'},
+    {at:'10:30', act:'call', btn:'10:30 媽媽按「請家人打電話給我」', see:'按鈕說這次沒送到。'},
+    {at:'11:00', btn:'快轉到 11:00', see:'家人沒收到通知，打開畫面才看到「沒有任何手機收到通知」。'}]}
+];
+var C = null, caseId = 'normal';
+function caseStart(id){
+  caseId = id;
+  var k = CASES.filter(function(x){ return x.id === id; })[0];
+  C = {k:k, i:0, t:'08:00', see:'', checked:null, queued:null, online:true, paused:false, alerts:0, alertAt:null, callAt:null, callSent:null, elderNt:[], familyNt:[], log:[]};
+}
+function caseMs(hm){ return new Date(localDay() + 'T' + hm + ':00').getTime(); }
+function caseNotify(who, n){
+  var l = who === 'elder' ? C.elderNt : C.familyNt;
+  if(who === 'family' && C.k.noPush) return;
+  for(var i = l.length - 1; i >= 0; i--) if(l[i].tag === n.tag) l.splice(i, 1);   // 同 tag 的通知會取代舊的，和手機上一樣
+  l.unshift({tag:n.tag, title:n.title, body:n.body, t:C.t});
+}
+function caseResolve(){   // 發過「還沒按」才通知家人解除
+  if(C.alerts) caseNotify('family', {tag:'late', title:CASE_NICK + '報平安了', body:CASE_NICK + '今天按了「我很好」。'});
+}
+function caseAlert(hm, n){
+  C.alerts = n; C.alertAt = hm;
+  caseNotify('family', {tag:'late', title:CASE_NICK + '今天還沒報平安', body:n === 1 ? '過了 ' + CASE_DEADLINE + ' 還沒按「我很好」，打個電話問問吧。' : '到現在還是沒有按「我很好」，請聯絡' + CASE_NICK + '或附近的親友。'});
+  C.log.push(hm + (C.k.noPush ? ' 第 ' + n + ' 次通知家人，沒有手機收到' : ' 第 ' + n + ' 次通知家人'));
+}
+function caseClock(to){   // 時鐘走到 to，途中到點的排程依序觸發
+  var quiet = function(){ return C.checked || C.paused; };
+  if(C.t < CASE_REMIND && to >= CASE_REMIND && !quiet()){
+    C.t = CASE_REMIND;
+    caseNotify('elder', {tag:'remind', title:'今天按「我很好」了嗎？', body:'按一下，讓家人安心。'});
+    C.log.push(CASE_REMIND + ' 提醒' + CASE_NICK);
+  }
+  if(C.t < CASE_DEADLINE && to >= CASE_DEADLINE && !quiet()){ C.t = CASE_DEADLINE; caseAlert(CASE_DEADLINE, 1); }
+  if(C.t < CASE_SECOND && to >= CASE_SECOND && !quiet()){ C.t = CASE_SECOND; caseAlert(CASE_SECOND, 2); }
+  C.t = to;
+}
+var caseActs = {
+  press: function(){
+    if(!C.online){ C.queued = C.t; C.log.push(C.t + ' ' + CASE_NICK + '按了，還沒送出'); return; }
+    C.checked = C.t; C.log.push(C.t + ' ' + CASE_NICK + '報平安'); caseResolve();
+  },
+  call: function(){
+    C.callAt = C.t; C.callSent = C.k.noPush ? 0 : 2;
+    caseNotify('family', {tag:'call', title:CASE_NICK + '想接到您的電話', body:CASE_NICK + '按了「請家人打電話給我」，有空打個電話吧。'});
+    C.log.push(C.t + ' ' + CASE_NICK + '請家人打電話' + (C.callSent ? '' : '，沒有手機收到'));
+  },
+  pause: function(){ C.paused = true; C.log.push(C.t + ' 家人暫停提醒 3 天'); },
+  netOff: function(){ C.online = false; C.log.push(C.t + ' ' + CASE_NICK + '的手機斷網'); },
+  netOn: function(){
+    C.online = true; C.log.push(C.t + ' 網路恢復');
+    if(C.queued){ C.checked = C.queued; C.queued = null; C.log.push('補送 ' + C.checked + ' 的報平安'); caseResolve(); }
+  }
+};
+function caseKey(){ return F.state + '|' + C.callAt + '|' + JSON.stringify(C.familyNt); }
+function caseNext(){
+  var st = C.k.steps[C.i], before = caseKey(); if(!st) return;
+  caseClock(st.at);
+  if(st.act){ if(st.act === 'press') chime(); caseActs[st.act](); }
+  C.see = st.see; C.i++;
+  paintCase();
+  // 窄螢幕兩支手機上下排，捲到這一步有變化的那支；家人沒變化就看長輩
+  if(matchMedia('(max-width:899px)').matches) document.querySelector(caseKey() !== before ? '.cs-ph:not(.el)' : '.cs-ph.el').scrollIntoView();
+}
+function caseFamily(){   // 組成和 Worker 回傳相同的資料，直接用真的家人畫面元件
+  var d = demoData(), today = d.today, c = C.checked;
+  d.days = d.days.filter(function(x){ return x.day !== today; });
+  if(c) d.days.push({day:today, at:caseMs(c)});
+  d.nickname = CASE_NICK; d.remindAt = CASE_REMIND; d.deadline = CASE_DEADLINE;
+  d.checkedAt = c ? caseMs(c) : null;
+  d.pauseUntil = C.paused ? addDays(today, 3) : null;
+  d.state = c ? 'ok' : C.paused ? 'paused' : C.t >= CASE_DEADLINE ? 'late' : 'waiting';
+  d.alert = C.alerts ? {count:C.alerts, at:caseMs(C.alertAt), sent:C.k.noPush ? 0 : 2} : null;
+  return d;
+}
+function ntHtml(l, none){
+  return l.length ? l.map(function(n){ return '<div class="cs-nt"><b>' + esc(n.title) + '</b>' + esc(n.body) + '<div class="small">' + n.t + '</div></div>'; }).join('') : '<p class="small cs-none">' + none + '</p>';
+}
+function viewCase(){ caseStart(caseId); paintCase(); }
+function paintCase(){
+  var next = C.k.steps[C.i], act = next && next.act, lit = !!C.checked || !!C.queued;
+  var label = C.callSent === null ? '請家人打電話給我' : C.callSent ? '已經請家人打給您了' : '家人手機沒開通知，這次沒送到';
+  F = caseFamily();
+  app.innerHTML = '<span class="demo-tag">這是示範案例，資料都是虛構的，不會連線，也不會通知任何人　<a href="#home" style="color:inherit">離開</a></span>' +
+    '<span class="plate">示範案例</span>' +
+    '<div class="chips">' + CASES.map(function(k){ return '<button class="chip" data-case="' + k.id + '" aria-pressed="' + (k.id === caseId) + '">' + k.name + '</button>'; }).join('') + '</div>' +
+    '<p class="small">' + esc(C.k.goal) + '提醒 ' + CASE_REMIND + '，通知家人 ' + CASE_DEADLINE + '。</p>' +
+    '<div class="cs-grid"><section class="cs-ph el"><h2>' + CASE_NICK + '的手機' + (C.online ? '' : '（沒有網路）') + '</h2>' +
+      ntHtml(C.elderNt, '還沒有通知') +
+      '<button class="win mini' + (lit ? ' lit' : '') + (act === 'press' ? ' cs-hint' : '') + '" id="cw"' + (act === 'press' ? '' : ' disabled') + ' aria-label="我很好">' + GRILLE + '<span class="say">' + (lit ? '今天很好' : '我很好') + '</span></button>' +
+      '<div class="msg" aria-live="polite">' + elderMsg(C.checked, !!C.queued) + '</div>' +
+      '<button class="btn alt' + (act === 'call' ? ' cs-hint' : '') + '" id="cc"' + (act === 'call' ? '' : ' disabled') + '>' + label + '</button></section>' +
+    '<section class="cs-ph"><h2>家人的手機</h2>' +
+      ntHtml(C.familyNt, C.k.noPush ? '這支手機沒開通知，什麼都不會跳出來' : '還沒有通知') +
+      statusHtml() +
+      (C.callAt ? '<div class="strip call">' + CASE_NICK + ' ' + C.callAt + ' 按了「請家人打電話給我」</div>' : '') +
+      (C.k.noPush ? '<div class="strip warn"><b>這支手機還收不到通知</b></div>' : '') +
+      facadeHtml() + '</section></div>' +
+    '<div class="card"><b>今天發生的事</b>' + (C.log.length ? '<ol class="cs-log">' + C.log.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join('') + '</ol>' : '<p class="small">還沒有事情發生</p>') + '</div>' +
+    '<div class="foot"><button class="link" data-act="warn">⚠ 使用警語</button>　<a class="link" href="manual.html">操作手冊</a></div>' +
+    '<div class="cs-bar" aria-live="polite"><div class="cs-now"><b>' + C.t + '</b><span>第 ' + Math.min(C.i + (next ? 1 : 0), C.k.steps.length) + '／' + C.k.steps.length + ' 步</span></div>' +
+      '<p>' + (C.see ? '應該看到：' + esc(C.see) : '按下面的按鈕開始。') + '</p>' +
+      (next ? '<button class="btn lamp" id="cn">' + esc(next.btn) + '</button>' : '<button class="btn lamp" data-case="' + caseId + '">案例跑完了，再跑一次</button>') + '</div>';
+  if($('cn')) $('cn').onclick = caseNext;
+  if(act === 'press') $('cw').onclick = caseNext;
+  if(act === 'call') $('cc').onclick = caseNext;
+}
+
 /* ---------- 視窗與設定 ---------- */
 function openModal(html){ $('modalBox').innerHTML = '<button class="close" data-act="close" aria-label="關閉">✕</button>' + html; $('modal').classList.add('show'); $('modalBox').querySelector('.close').focus(); }
 function closeModal(){ $('modal').classList.remove('show'); }
@@ -610,6 +774,7 @@ document.addEventListener('click', function(e){
   if(d.act && acts[d.act]) acts[d.act]();
   else if(d.tab){ lsSet('cur', d.tab); viewFamily(); }
   else if(d.scene){ demoScene(d.scene); loadFamily(); }
+  else if(d.case){ caseStart(d.case); paintCase(); }
   else if(d.day){ var i = $('dayInfo'); if(i) i.textContent = d.info; }
   else if(d.fs){ lsSet('fs', d.fs); applyFs(); openSettings(); }
   else if(d.sound){ lsSet('sound', d.sound); openSettings(); }
@@ -716,7 +881,7 @@ function gateUnlock(l){
 function gateLock(text, l){
   gateOpen = false; clearInterval(timer); closeModal(); gateExpiryNote(null);
   gateStatus('bad', '✗ ' + text); gateHead(l && l.reason === 'headcount_exceeded' ? l : null);
-  $('entryGate').classList.remove('hidden');
+  $('entryGate').classList.toggle('hidden', freeHash());
 }
 function gateRun(serial, renew){
   if(!serial){ gateLock(REASON_LABEL.missing_serial); return Promise.resolve(); }
@@ -754,12 +919,13 @@ function initGate(){
   setInterval(gateRenew, RECHECK_MS);
   window.addEventListener('pagehide', function(){ gateRelease(lsGet('entrySerial')); });   // 送不出去也沒關係，後端 40 分鐘逾時兜底
   if(saved){ gateOpen = true; $('entryGate').classList.add('hidden'); gateStatus('', '這支手機已登入'); route(); gateRun(saved, true); }
+  else if(freeHash()) route();
 }
 
 window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._dp = e; });
 if('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('service-worker.js').catch(function(){});
 applyFs(); initMarquee(); initGate();
-window._ifc = {route:route, gateRun:gateRun, gateRenew:gateRenew, get F(){ return F; }, get E(){ return E; }};
+window._ifc = {route:route, gateRun:gateRun, gateRenew:gateRenew, get F(){ return F; }, get E(){ return E; }, get C(){ return C; }};
 </script>
 </body>
 </html>

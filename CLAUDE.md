@@ -32,6 +32,7 @@
 - 離線按：寫 `ifc.pending`，恢復後用原本時間補送（36 小時內有效）。畫面要說「還沒送出」。
 - 資料保留：`checkins` 100 天；180 天沒人用（`last_seen`）整組刪除。手冊與警語都寫了這些數字，改了要同步。
 - 範例模式 `#demo-elder`／`#demo-family`：`demoApi()` 全在前端，不打後端。
+- 示範案例 `#demo-case`：模擬時鐘跑一天，`CASES` 7 個案例，長輩＋家人手機並排，全在前端、不打後端、不發真通知，**是唯一不需序號就能開的畫面**（`freeHash()`）。`caseClock()`／`caseActs` 對照 Worker 的 `sweep()`／`dailyState()`，通知文字也手動複製，**改 Worker 規則或文案要一起改**。
 - 儲存鍵前綴 `ifc.`。測試掛鉤 `window._ifc`。
 
 ## 標準配備
