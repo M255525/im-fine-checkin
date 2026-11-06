@@ -121,6 +121,18 @@ await post('checkin', { code: c3.elderCode, at: yesterdayAt });
 f = await post('family', { code: c3.familyCode });
 ok(f.days.length === 1 && f.days[0].day < today && f.state !== 'ok', '離線補送算在按下那天');
 
+// 資料清除
+ok((await post('settings', { code: c3.familyCode, keepDays: 45 })).s === 400, '保留天數只接受 30／60／100');
+await post('settings', { code: c3.familyCode, keepDays: 30 });
+f = await post('family', { code: c3.familyCode });
+ok(f.keepDays === 30 && f.days.length === 1, '改保留天數不影響範圍內的紀錄');
+ok((await post('clearOld', { code: c3.elderCode })).s === 404, '長輩碼不能清除紀錄');
+await post('checkin', { code: c3.elderCode });
+await post('clearOld', { code: c3.familyCode });
+f = await post('family', { code: c3.familyCode });
+ok(f.days.length === 1 && f.days[0].day === today && f.state === 'ok' && f.recordFrom === today, '清除舊紀錄留下今天，今天不會變回沒按');
+ok((await post('elder', { code: c3.elderCode })).checkedAt && f.elderCode === c3.elderCode, '清除後配對和今天的紀錄都還在');
+
 for (const x of [c, c2, c3]) await post('remove', { code: x.familyCode });
 ok((await post('family', { code: c.familyCode })).s === 404, '刪除後查不到');
 console.log(`\n${pass} passed, ${fail} failed`);

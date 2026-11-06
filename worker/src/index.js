@@ -4,6 +4,7 @@ const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const SECOND_ALERT_MS = 2 * 3600e3;
 const KEEP_DAYS = 100;
+const KEEP_CHOICES = [30, 60, KEEP_DAYS];   // 家人可選的自動清除天數
 const IDLE_DELETE_DAYS = 180;
 // 免費方案每次排程只有 10 毫秒 CPU、50 次對外請求，一輪只做這麼多，做不完留給下一輪
 const SWEEP_PUSHES = 15;
@@ -184,14 +185,18 @@ const actions = {
   async family(env, req, b) {
     const e = await findBy(env, req, 'family_code', b.code);
     const now = localNow(e.tz), t = Date.now();
-    const { results } = await env.DB.prepare('SELECT day,at FROM checkins WHERE elder_id=? AND day>=? ORDER BY day').bind(e.id, addDays(now.day, -KEEP_DAYS)).all();
+    // recordFrom 之前的日子已清除，前端要畫成空白，不能當成「沒有按」
+    const createdDay = localNow(e.tz, e.created_at).day;
+    const dataFrom = [addDays(now.day, -e.keep_days), e.cleared_day || ''].sort().pop();
+    const recordFrom = [createdDay, dataFrom].sort().pop();
+    const { results } = await env.DB.prepare('SELECT day,at FROM checkins WHERE elder_id=? AND day>=? ORDER BY day').bind(e.id, dataFrom).all();
     const subs = await env.DB.prepare('SELECT role,COUNT(*) n FROM subs WHERE elder_id=? GROUP BY role').bind(e.id).all();
     const count = Object.fromEntries(subs.results.map((r) => [r.role, r.n]));
     await env.DB.prepare('UPDATE elders SET last_seen=? WHERE id=?').bind(t, e.id).run();
     const today = results.find((r) => r.day === now.day);
     return {
       nickname: e.nickname, tz: e.tz, today: now.day, remindAt: e.remind_at, deadline: e.deadline, pauseUntil: e.pause_until,
-      startDay: e.start_day, createdDay: localNow(e.tz, e.created_at).day, state: dailyState(e, now, !!today), checkedAt: today ? today.at : null, days: results,
+      startDay: e.start_day, createdDay, recordFrom, keepDays: e.keep_days, state: dailyState(e, now, !!today), checkedAt: today ? today.at : null, days: results,
       elderCode: e.elder_code, callAt: e.call_at, familyDevices: count.family || 0, elderDevices: count.elder || 0,
       alert: e.alert_day === now.day ? { count: e.alert_count, at: e.alert_at, sent: e.alert_sent } : null,
     };
@@ -210,7 +215,26 @@ const actions = {
       const today = localNow(e.tz).day;
       if (pause && (!DAY.test(pause) || pause < today || pause > addDays(today, 90))) throw new Fail(400, '暫停日期要在今天到 90 天內。');
     }
-    await env.DB.prepare('UPDATE elders SET nickname=?,remind_at=?,deadline=?,pause_until=? WHERE id=?').bind(nickname, remind, deadline, pause, e.id).run();
+    const keep = b.keepDays === undefined ? e.keep_days : b.keepDays;
+    if (!KEEP_CHOICES.includes(keep)) throw new Fail(400, '保留天數只能選 30、60 或 100 天。');
+    // 改天數時記下已清除的界線：改回較長的天數，資料也回不來，那些日子不能顯示成「沒有按」
+    const today = localNow(e.tz).day, cut = addDays(today, -Math.min(keep, e.keep_days));
+    const cleared = keep === e.keep_days ? e.cleared_day : [cut, e.cleared_day || ''].sort().pop();
+    await env.DB.batch([
+      env.DB.prepare('UPDATE elders SET nickname=?,remind_at=?,deadline=?,pause_until=?,keep_days=?,cleared_day=? WHERE id=?').bind(nickname, remind, deadline, pause, keep, cleared, e.id),
+      env.DB.prepare('DELETE FROM checkins WHERE elder_id=? AND day<?').bind(e.id, addDays(today, -keep)),
+    ]);
+    return { ok: true };
+  },
+
+  // 只清今天以前的紀錄。今天的要留著，否則長輩已經按過，到點還會誤報沒按
+  async clearOld(env, req, b) {
+    const e = await findBy(env, req, 'family_code', b.code);
+    const today = localNow(e.tz).day;
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM checkins WHERE elder_id=? AND day<?').bind(e.id, today),
+      env.DB.prepare('UPDATE elders SET cleared_day=? WHERE id=?').bind(today, e.id),
+    ]);
     return { ok: true };
   },
 
@@ -318,6 +342,7 @@ async function cleanup(env, t) {
   const idle = t - IDLE_DELETE_DAYS * 864e5;
   await env.DB.batch([
     env.DB.prepare('DELETE FROM checkins WHERE day<?').bind(keep),
+    ...KEEP_CHOICES.filter((d) => d < KEEP_DAYS).map((d) => env.DB.prepare('DELETE FROM checkins WHERE day<? AND elder_id IN (SELECT id FROM elders WHERE keep_days=?)').bind(new Date(t - d * 864e5).toISOString().slice(0, 10), d)),
     env.DB.prepare('DELETE FROM rate WHERE exp<?').bind(t),
     env.DB.prepare('DELETE FROM subs WHERE elder_id IN (SELECT id FROM elders WHERE last_seen<?)').bind(idle),
     env.DB.prepare('DELETE FROM elders WHERE last_seen<?').bind(idle),

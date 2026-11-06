@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS elders (
   alert_count INTEGER NOT NULL DEFAULT 0,
   alert_at INTEGER,
   alert_sent INTEGER NOT NULL DEFAULT 0,
-  call_at INTEGER
+  call_at INTEGER,
+  keep_days INTEGER NOT NULL DEFAULT 100,
+  cleared_day TEXT
 );
 CREATE TABLE IF NOT EXISTS checkins (
   elder_id INTEGER NOT NULL,

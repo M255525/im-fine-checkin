@@ -30,7 +30,9 @@
 - 排程容量：`DUE_SQL` 在資料庫挑出該處理的人，Worker CPU 不隨總人數增加。免費方案每次排程只有 10 毫秒 CPU、50 次對外請求，所以一輪最多 15 則推播、40 位長輩（`SWEEP_PUSHES`／`SWEEP_ELDERS`），做不完下一輪接著送；順序是第一次通知家人→第二次→提醒長輩。每 5 位寫回一次，中斷也不重送。每位長輩每輪最多送 30 支手機（`MAX_PHONES`）。清理會掃整張 `checkins`，只在台北凌晨 3 點跑，**不要改回每輪都跑**（會吃光每日讀取額度）。
 - 當天過了 deadline 才建立的，`start_day` 設隔天，不誤報。「今天」以長輩時區（`tz`）計。
 - 離線按：寫 `ifc.pending`，恢復後用原本時間補送（36 小時內有效）。畫面要說「還沒送出」。
-- 資料保留：`checkins` 100 天；180 天沒人用（`last_seen`）整組刪除。手冊與警語都寫了這些數字，改了要同步。
+- 資料保留：`checkins` 預設 100 天，家人可在 ⚙「資料清除」改 30／60 天（`elders.keep_days`，`KEEP_CHOICES`）；180 天沒人用（`last_seen`）整組刪除。手冊與警語都寫了這些數字，改了要同步。
+- 清除舊紀錄 `clearOld`：只清今天以前，記 `elders.cleared_day`。**今天的不可清**，否則已按過到點還會誤報。Worker 回 `recordFrom`，前端公寓在這天之前畫空白，不可顯示成「沒有按」。改保留天數時也要更新 `cleared_day`（取新舊較短者），否則改短再改長，已刪的日子會變成假的「沒有按」。
+- 既有 D1 加欄位用 `worker/migrate_keep_days.sql`，要先跑再部署 Worker，順序：`--remote` 跑 SQL → `wrangler deploy` → push 前端。
 - 範例模式 `#demo-elder`／`#demo-family`：`demoApi()` 全在前端，不打後端。
 - 示範案例 `#demo-case`：模擬時鐘跑一天，`CASES` 7 個案例，長輩＋家人手機並排，全在前端、不打後端、不發真通知，**是唯一不需序號就能開的畫面**（`freeHash()`）。`caseClock()`／`caseActs` 對照 Worker 的 `sweep()`／`dailyState()`，通知文字也手動複製，**改 Worker 規則或文案要一起改**。
 - 儲存鍵前綴 `ifc.`。測試掛鉤 `window._ifc`。

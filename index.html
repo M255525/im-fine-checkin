@@ -219,7 +219,7 @@ var WARN_HTML = '<h2>⚠ 使用警語</h2>' +
   '<li>沒按不代表出事，可能只是忘了；按了也不代表身體沒問題。</li>' +
   '<li>「稱呼」請寫媽媽、阿公這類稱呼，不要寫全名，也不要填地址或病歷。</li>' +
   '<li>配對碼就像鑰匙，拿到的人能看到按的紀錄，只傳給自己的家人。</li>' +
-  '<li>按的時間存在雲端（Cloudflare），保留 100 天；180 天沒人使用會自動刪除，也可以隨時在設定裡刪除。</li>' +
+  '<li>按的時間存在雲端（Cloudflare），預設保留 100 天，可以在設定改成 30 或 60 天，也可以隨時清除；180 天沒人使用會自動刪除。</li>' +
   '<li>請先取得長輩同意再使用。</li></ul>';
 
 var ua = navigator.userAgent || '';
@@ -245,7 +245,7 @@ var demo = null;
 function demoData(){
   var today = localDay(), days = [], now = Date.now();
   for(var i = 38; i >= 1; i--){ if(i === 5 || i === 17) continue; if(i >= 9 && i <= 11) continue; days.push({day: addDays(today, -i), at: now - i * 864e5 - (i % 5) * 9e5}); }
-  return {nickname:'媽媽', tz:Intl.DateTimeFormat().resolvedOptions().timeZone, today:today, remindAt:'09:00', deadline:'11:00', pauseUntil:null, startDay:addDays(today, -40), createdDay:addDays(today, -40), state:'ok', checkedAt:now - 3e6, days:days.concat([{day:today, at:now - 3e6}]), elderCode:'DEMO22334455', callAt:null, familyDevices:2, elderDevices:1, alert:null, rest:[addDays(today, -9), addDays(today, -10), addDays(today, -11)]};
+  return {nickname:'媽媽', tz:Intl.DateTimeFormat().resolvedOptions().timeZone, today:today, remindAt:'09:00', deadline:'11:00', pauseUntil:null, startDay:addDays(today, -40), createdDay:addDays(today, -40), recordFrom:addDays(today, -40), keepDays:100, state:'ok', checkedAt:now - 3e6, days:days.concat([{day:today, at:now - 3e6}]), elderCode:'DEMO22334455', callAt:null, familyDevices:2, elderDevices:1, alert:null, rest:[addDays(today, -9), addDays(today, -10), addDays(today, -11)]};
 }
 function demoScene(s){
   var today = demo.today;
@@ -253,12 +253,22 @@ function demoScene(s){
   if(s === 'ok'){ demo.checkedAt = Date.now() - 3e6; demo.days.push({day:today, at:demo.checkedAt}); }
   if(s === 'late'){ demo.alert = {count:1, at:Date.now() - 6e5, sent:2}; }
 }
+function demoTrim(from){
+  demo.recordFrom = from > demo.recordFrom ? from : demo.recordFrom;
+  demo.days = demo.days.filter(function(d){ return d.day >= demo.recordFrom; });
+}
 function demoApi(a, b){
   if(a === 'elder') return {nickname:demo.nickname, tz:demo.tz, today:demo.today, checkedAt:demo.checkedAt, remindAt:demo.remindAt, deadline:demo.deadline, callAt:demo.callAt};
   if(a === 'family') return JSON.parse(JSON.stringify(demo));
   if(a === 'checkin'){ demoScene('ok'); demo.pressed = true; demo.checkedAt = Date.now(); demo.days[demo.days.length - 1].at = demo.checkedAt; return {today:demo.today, checkedAt:demo.checkedAt}; }
   if(a === 'callMe'){ demo.callAt = Date.now(); return {sent:2}; }
-  if(a === 'settings'){ ['nickname','remindAt','deadline','pauseUntil'].forEach(function(k){ if(b[k] !== undefined) demo[k] = b[k]; }); if(demo.pauseUntil && !demo.checkedAt) demo.state = 'paused'; return {ok:true}; }
+  if(a === 'settings'){
+    ['nickname','remindAt','deadline','pauseUntil','keepDays'].forEach(function(k){ if(b[k] !== undefined) demo[k] = b[k]; });
+    if(demo.pauseUntil && !demo.checkedAt) demo.state = 'paused';
+    if(b.keepDays) demoTrim(addDays(demo.today, -b.keepDays));
+    return {ok:true};
+  }
+  if(a === 'clearOld'){ demoTrim(demo.today); return {ok:true}; }
   return {ok:true};
 }
 function api(a, b){
@@ -516,15 +526,15 @@ function statusHtml(){
   return '<div class="status waiting"><h2>' + n + '今天還沒按</h2><p class="small">' + (F.today < F.startDay ? '明天開始計算。' : '過了 ' + F.deadline + ' 還沒按，會通知您。') + '</p></div>';
 }
 function facadeHtml(){
-  var t = new Date(F.today + 'T12:00:00Z'), dow = (t.getUTCDay() + 6) % 7, start = addDays(F.today, -dow - 28), map = {}, rest = F.rest || [];
+  var t = new Date(F.today + 'T12:00:00Z'), dow = (t.getUTCDay() + 6) % 7, start = addDays(F.today, -dow - 28), map = {}, rest = F.rest || [], from = F.recordFrom || F.createdDay;
   F.days.forEach(function(d){ map[d.day] = d.at; });
   var rows = '';
   for(var w = 0; w < 5; w++){
-    if(addDays(start, w * 7 + 6) < F.createdDay) continue;
+    if(addDays(start, w * 7 + 6) < from) continue;
     rows += '<div class="wk">';
     for(var i = 0; i < 7; i++){
       var day = addDays(start, w * 7 + i), dd = Number(day.slice(8)), at = map[day], cls = 'd';
-      if(day > F.today || day < F.createdDay) cls += ' void';
+      if(day > F.today || day < from) cls += ' void';
       else if(at) cls += ' lit';
       else if(rest.indexOf(day) >= 0) cls += ' rest';
       if(day === F.today) cls += ' today';
@@ -723,6 +733,8 @@ function settingsHtml(){
     s += sec('pause', '暫停提醒', F.pauseUntil && F.today <= F.pauseUntil ? '到 ' + F.pauseUntil : '', '<p class="small">長輩出遊、住院或跟您同住時用，暫停期間不通知。</p><label class="f">暫停到哪一天<input type="date" id="sPause" min="' + F.today + '" max="' + addDays(F.today, 90) + '" value="' + (F.pauseUntil || '') + '"></label><div class="row2" style="margin-top:.5rem"><button class="btn" data-act="savePause">暫停</button><button class="btn alt" data-act="clearPause">取消暫停</button></div>');
     s += sec('notify', '通知方式', each ? '每次都通知' : '沒按才通知', '<p class="small">預設只有沒按才通知。勾選後，長輩每天按的時候也會跟您說一聲。</p><div class="chips"><button class="chip" data-each="0" aria-pressed="' + !each + '">沒按才通知</button><button class="chip" data-each="1" aria-pressed="' + each + '">每次都通知</button></div>');
     s += sec('tel', '長輩的電話', tel ? '已填' : '', '<p class="small">只存在這支手機，不會上傳。填了之後，沒按時畫面會出現撥號按鈕。</p><input type="tel" id="sTel" value="' + esc(tel) + '"><button class="btn" data-act="saveTel" style="margin-top:.5rem">儲存</button>');
+    var keep = F.keepDays || 100;
+    s += sec('clean', '資料清除', '保留 ' + keep + ' 天', '<p class="small">按的紀錄超過這個天數會自動清除。改短時，超過天數的舊紀錄會馬上清掉。</p><div class="chips">' + [30, 60, 100].map(function(d){ return '<button class="chip" data-keep="' + d + '" aria-pressed="' + (d === keep) + '">' + d + ' 天</button>'; }).join('') + '</div><p class="small" style="margin-top:.6rem">也可以現在就清除今天以前的紀錄。配對、通知和今天的紀錄都會留著，清除後不能復原。</p><button class="btn alt" data-act="clearOld">清除今天以前的紀錄</button>');
     if(!demo){
       s += sec('inviteE', '再傳一次長輩連結', '', shareBlock(F.nickname, 'e', F.elderCode, '這是每天報平安的連結，打開按「我很好」就可以：'));
       s += sec('inviteF', '邀請兄弟姊妹', F.familyDevices + ' 支手機有開通知', '<p class="small">對方打開連結後，也要開啟通知才收得到。</p>' + shareBlock(F.nickname, 'f', c, '一起看' + F.nickname + '有沒有報平安：'));
@@ -759,6 +771,7 @@ var acts = {
   savePause: function(){ if(!$('sPause').value){ toast('請先選日期'); return; } saveSettings({pauseUntil:$('sPause').value}, '已暫停提醒'); },
   clearPause: function(){ saveSettings({pauseUntil:''}, '已恢復提醒'); },
   saveTel: function(){ var c = demo ? 'DEMO' : curCode(), v = $('sTel').value.trim(); if(demo){ toast('範例不會儲存'); return; } if(v) lsSet('tel.' + c, v); else lsDel('tel.' + c); toast('電話存在這支手機了'); closeModal(); paintFamily(); },
+  clearOld: function(){ if(!confirm('會清除' + F.nickname + '今天以前的全部紀錄，清除後不能復原。確定嗎？')) return; api('clearOld', {code:demo ? 'DEMO' : curCode()}).then(function(){ toast('舊紀錄清除了'); closeModal(); loadFamily(); }).catch(function(e){ toast(errText(e)); }); },
   'export': function(){ var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({nickname:F.nickname, remindAt:F.remindAt, deadline:F.deadline, days:F.days}, null, 2)], {type:'application/json'})); a.download = '我很好紀錄.json'; a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000); },
   leave: function(){ var c = curCode(); if(!confirm('這支手機不再追蹤，雲端資料和其他家人不受影響。確定嗎？')) return; disablePush(c, 'family').then(function(){ saveFamilies(families().filter(function(x){ return x.code !== c; })); lsDel('tel.' + c); lsDel('each.' + c); go(families().length ? '#family' : '#home'); }); },
   'delete': function(){ var c = curCode(); if(!confirm('會刪除雲端上全部紀錄，長輩的連結也會失效，所有家人都看不到了。確定嗎？')) return; api('remove', {code:c}).then(function(){ saveFamilies(families().filter(function(x){ return x.code !== c; })); lsDel('tel.' + c); toast('已刪除'); go(families().length ? '#family' : '#home'); }).catch(function(e){ toast(errText(e)); }); },
@@ -776,6 +789,12 @@ document.addEventListener('click', function(e){
   else if(d.scene){ demoScene(d.scene); loadFamily(); }
   else if(d.case){ caseStart(d.case); paintCase(); }
   else if(d.day){ var i = $('dayInfo'); if(i) i.textContent = d.info; }
+  else if(d.keep){
+    var k = Number(d.keep);
+    if(k === (F.keepDays || 100)) return;
+    if(k < (F.keepDays || 100) && !confirm('超過 ' + k + ' 天的舊紀錄會馬上清除，清除後不能復原。確定嗎？')) return;
+    saveSettings({keepDays:k}, '紀錄改成保留 ' + k + ' 天');
+  }
   else if(d.fs){ lsSet('fs', d.fs); applyFs(); openSettings(); }
   else if(d.sound){ lsSet('sound', d.sound); openSettings(); }
   else if(d.each !== undefined){
