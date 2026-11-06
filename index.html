@@ -126,10 +126,11 @@ body:not(.wall) .gear{background:var(--paper);box-shadow:inset 0 0 0 2px var(--l
 .steps li{margin:.25rem 0}
 
 /* 設定視窗 */
-#modal{position:fixed;inset:0;z-index:70;display:none;background:rgba(13,27,54,.72);padding:12px;overflow:auto;color:var(--ink)}
+#modal{position:fixed;inset:0;z-index:3300;display:none;background:rgba(13,27,54,.72);padding:12px;overflow:auto;color:var(--ink)}
 #modal.show{display:block}
 #modal .box{max-width:560px;margin:calc(var(--mq) + 8px) auto 12px;padding:.8rem 1rem 1rem;border-radius:.9rem;background:var(--sky)}
 #modal h2{font-size:1.3rem;margin-bottom:.4rem}
+#modal .small{color:var(--sub)}
 #modal .close{float:right;width:2.6rem;height:2.6rem;border:0;border-radius:.5rem;background:#fff;font-size:1.1rem;font-weight:900;cursor:pointer}
 .set-sec{border-radius:.6rem;margin-bottom:.45rem;background:var(--paper);box-shadow:0 0 0 2px var(--line)}
 .set-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:.5rem;padding:.55rem .7rem;font-weight:700;min-height:3rem}
@@ -197,6 +198,7 @@ body:has(#entryGate:not(.hidden)){overflow:hidden}
     <span id="entryGateStatus" class="lic" role="status">尚未驗證</span>
     <div><span id="entryGateHeadcount" class="lic" aria-live="polite"></span></div>
     <a class="btn alt" href="#demo-case" style="margin-top:.6rem">先看示範案例（不用序號）</a>
+    <button class="btn alt" type="button" data-act="reset" style="margin-top:.4rem">清除這支手機的舊資料，重新設定</button>
     <p class="gate-foot">沒有序號？請洽 <a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a>｜<a href="manual.html" target="_blank" rel="noopener">📖 操作手冊</a></p>
   </div>
 </div>
@@ -742,7 +744,7 @@ function settingsHtml(){
       s += sec('data', '資料', '', '<div class="stack"><button class="btn alt" data-act="export">下載紀錄（JSON）</button><button class="btn alt" data-act="leave">這支手機不再追蹤' + n + '</button><button class="btn danger" data-act="delete">刪除' + n + '的全部資料</button></div>');
     }
   }
-  return s + licSec() + aboutSec();
+  return s + licSec() + (demo ? '' : resetSec()) + aboutSec();
 }
 function openSettings(){
   openModal(settingsHtml());
@@ -840,7 +842,8 @@ var LICENSE_SHEET = '每日報平安', RECHECK_MS = 20 * 60 * 1000, WARN_DAYS = 
 var gateInfo = {cls:'', text:'尚未驗證', hcls:'', head:''};
 var REASON_LABEL = {
   missing_serial:'請輸入登入序號',
-  serial_not_found:'查無此序號，請確認有沒有打錯',
+  serial_not_found:'查無此序號，請確認有沒有打錯（英文大小寫要一樣），也要是「每日報平安」的序號',
+  headcount_exceeded:'這組序號登入的手機已經滿了，請先在其他手機登出，或 40 分鐘後再試',
   expired:'這組序號已經過期了，請聯絡家人',
   network_error:'連不上網路，請確認網路後再按一次確認',
   server_error:'驗證暫時失敗，請等一下再試'
@@ -910,6 +913,10 @@ function gateRun(serial, renew){
     else gateLock(REASON_LABEL[l.reason] || l.message || '序號驗證失敗', l);
   }).catch(function(e){ if(!gateOpen) gateLock(e.message); });
 }
+// 複製貼上常帶空白，手機輸入法也可能打成全形；大小寫不動，試算表比對要完全相同
+function cleanSerial(v){
+  return String(v).replace(/[\uFF01-\uFF5E]/g, function(c){ return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).replace(/[\s\u3000]/g, '');
+}
 function gateRenew(){ var s = lsGet('entrySerial'); if(s && gateOpen) gateRun(s, true); }
 function gateRelease(serial){
   if(!serial || !navigator.sendBeacon) return;
@@ -918,6 +925,33 @@ function gateRelease(serial){
 function licSec(){
   return sec('lic', '登入序號', gateOpen ? '已登入' : '', '<span id="licBadge" class="lic ' + gateInfo.cls + '">' + esc(gateInfo.text) + '</span><div><span id="headcountBadge" class="lic ' + gateInfo.hcls + '">' + esc(gateInfo.head) + '</span></div><p class="small">登出後，這支手機要重新輸入序號才能報平安。</p><button class="btn alt" data-act="logout">登出</button>');
 }
+/* 清除這支手機的舊資料：只動這支手機，雲端紀錄不刪。登入失敗時也要按得到，所以不經過 api()。 */
+function resetSec(){ return sec('reset', '清除這支手機的舊資料', '', '<p class="small">換序號、登入出錯或想重新設定時用。雲端紀錄不會被刪除。</p><button class="btn alt" data-act="reset">清除並重新設定</button>'); }
+function resetCodes(){
+  var l = [], e = lsGet('elder');
+  if(e) l.push('長輩配對碼：' + fmtCode(e));
+  families().forEach(function(x){ l.push((x.nick || '長輩') + '的家人配對碼：' + fmtCode(x.code)); });
+  return l;
+}
+acts.reset = function(){
+  var codes = resetCodes();
+  openModal('<h2>清除這支手機的舊資料</h2><p>會清掉這支手機記住的序號、配對和設定，回到輸入序號的畫面。</p>' +
+    (codes.length ? '<p><b>請先把配對碼記下來</b>，之後按「我有配對碼」輸入，就能接回原本的紀錄：</p>' + codes.map(function(c){ return '<p class="code">' + esc(c) + '</p>'; }).join('') : '') +
+    (pending() ? '<p><b>還有一次報平安沒送出，清除後就不會補送了。</b></p>' : '') +
+    '<p class="small">雲端紀錄不會被刪除，長輩沒按時，其他家人照樣會收到通知。這支手機的通知清除後要重新開啟。</p>' +
+    '<div class="stack"><button class="btn danger" data-act="resetDo">確定清除</button><button class="btn alt" data-act="close">取消</button></div>');
+};
+acts.resetDo = function(){
+  gateRelease(lsGet('entrySerial'));
+  var wipe = function(){
+    try{
+      Object.keys(localStorage).forEach(function(k){ if(k.indexOf(PREFIX) === 0 && k !== PREFIX + 'entryClient') localStorage.removeItem(k); });   // 留著裝置識別碼，重新登入才不會多占一個名額
+    }catch(e){}
+    location.replace(location.pathname);
+  };
+  // 取消訂閱後，Worker 下次推播收到 410 就會自動刪掉這支手機
+  currentSub().then(function(s){ return s && s.unsubscribe(); }).catch(function(){}).then(wipe);
+};
 acts.logout = function(){
   if(!confirm('登出後要重新輸入序號才能使用，沒按的話家人還是會收到通知。要登出嗎？')) return;
   gateRelease(lsGet('entrySerial')); lsDel('entrySerial');
@@ -932,7 +966,12 @@ function initGate(){
     t.setAttribute('aria-pressed', String(!hide)); t.setAttribute('aria-label', hide ? '顯示序號' : '隱藏序號');
   }
   $('btnEntryGateToggle').onclick = function(){ maskSerial(input.type === 'text'); };
-  btn.onclick = function(){ maskSerial(true); var s = input.value.trim(); lsSet('entrySerial', s); gateStatus('', '驗證中…'); gateRun(s, false); };
+  btn.onclick = function(){
+    maskSerial(true);
+    var s = cleanSerial(input.value); input.value = s;
+    gateStatus('', '驗證中…');
+    gateRun(s, false).then(function(){ if(gateOpen) lsSet('entrySerial', s); });   // 驗證過才記住，打錯的不留在手機上
+  };
   input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); btn.click(); } });
   input.value = saved || '';
   setInterval(gateRenew, RECHECK_MS);
