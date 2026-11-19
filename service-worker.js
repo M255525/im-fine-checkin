@@ -1,5 +1,5 @@
 // 加入主畫面＋收通知。network-first＋同源快取備援，不快取跨網域請求。
-const CACHE_NAME = 'im-fine-checkin-shell-v9';
+const CACHE_NAME = 'im-fine-checkin-shell-v10';
 const API = 'https://im-fine-checkin.content-workflow.workers.dev';
 const SHELL_FILES = [
   './',
@@ -21,7 +21,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME && k.indexOf(CACHE_NAME.replace(/\d+$/, '')) === 0).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
