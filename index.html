@@ -175,6 +175,12 @@ body:has(#entryGate:not(.hidden)){overflow:hidden}
 #entryGateSerial{flex:1 1 0;min-width:0;min-height:3.2rem;font:inherit;font-weight:700;text-align:center;padding:.3rem .5rem;border:2px solid var(--line);border-radius:.6rem;background:#fff;color:#111}
 #btnEntryGateToggle{flex:none;width:auto;min-height:3.2rem;font-size:.8rem;padding-left:.5rem;padding-right:.5rem}
 .gate-foot{font-size:.75rem;margin-top:.7rem!important}
+.gate-free{margin-top:.8rem;padding:.7rem .75rem;border:2px dashed var(--lamp);border-radius:.6rem;background:var(--lamp-soft)}
+.gate-free .gf-t{font-weight:900}
+.gate-free .gf-code{display:inline-block;margin:.35rem 0;font:900 1.3rem/1.2 ui-monospace,Consolas,'Courier New',monospace;letter-spacing:.08em;background:#fff;border:2px solid var(--line);border-radius:.4rem;padding:.25rem .7rem;user-select:all;color:#111}
+.gate-free .stack{display:flex;gap:.4rem;flex-wrap:wrap}
+.gate-free .stack .btn{flex:1 1 9rem}
+.gate-free .gf-n{font-size:.78rem;margin:.4rem 0 0!important}
 .lic{display:inline-block;font-size:.8rem;font-weight:700;padding:.25rem .6rem;border-radius:.6rem;border:2px solid var(--line);margin-top:.5rem;overflow-wrap:anywhere}
 .lic.ok{color:#14632F;border-color:#14632F;background:#E6F4E9}
 .lic.bad{color:#A32019;border-color:#A32019;background:#FBE9E7}
@@ -197,6 +203,12 @@ body:has(#entryGate:not(.hidden)){overflow:hidden}
     <button class="btn" type="button" id="btnEntryGateConfirm">確認</button>
     <span id="entryGateStatus" class="lic" role="status">尚未驗證</span>
     <div><span id="entryGateHeadcount" class="lic" aria-live="polite"></span></div>
+    <div class="gate-free" id="gateFree">
+      <div class="gf-t">🎁 示範序號</div>
+      <div class="gf-code" id="gateFreeCode"></div>
+      <div class="stack"><button class="btn" type="button" id="btnGateFree">用示範序號登入</button><button class="btn alt" type="button" id="btnGateFreeCopy">複製序號</button></div>
+      <p class="gf-n">先試用看看。示範序號同時登入的手機有上限，額滿時請稍後再試；要長期使用請洽創作者換正式序號。</p>
+    </div>
     <a class="btn alt" href="#demo-case" style="margin-top:.6rem">先看示範案例（不用序號）</a>
     <button class="btn alt" type="button" data-act="reset" style="margin-top:.4rem">清除這支手機的舊資料，重新設定</button>
     <p class="gate-foot">沒有序號？請洽 <a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a>｜<a href="manual.html" target="_blank" rel="noopener">📖 操作手冊</a></p>
@@ -838,6 +850,7 @@ function initMarquee(){
    第一次登入 fail-closed。已登入過的手機直接開啟、背景驗證，只有序號確定無效才上鎖：
    長輩每天要按，開啟時連不上驗證就擋住的話，長輩按不了、家人反而收到沒按的通知，離線補送也會失效。 */
 var LICENSE_CHECK_URL = 'https://script.google.com/macros/s/AKfycbxXMdRnM6c_oDgv0K7YAXHLGrsERXmADt77ZZHEXkxZd88W5-Cyex4Py6p-dOt33gVamQ/exec';
+var FREE_SERIAL = 'FLf9M6zAX8pe';   // 登入頁的示範序號（試算表「每日報平安」那一列，人數上限 20）；停用改成 ''
 var LICENSE_SHEET = '每日報平安', RECHECK_MS = 20 * 60 * 1000, WARN_DAYS = 30;
 var gateInfo = {cls:'', text:'尚未驗證', hcls:'', head:''};
 var REASON_LABEL = {
@@ -973,6 +986,15 @@ function initGate(){
     gateRun(s, false).then(function(){ if(gateOpen) lsSet('entrySerial', s); });   // 驗證過才記住，打錯的不留在手機上
   };
   input.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); btn.click(); } });
+  if(FREE_SERIAL){
+    $('gateFreeCode').textContent = FREE_SERIAL;
+    $('btnGateFree').onclick = function(){ input.value = FREE_SERIAL; btn.click(); };
+    $('btnGateFreeCopy').onclick = function(){
+      var b = $('btnGateFreeCopy'), done = function(){ b.textContent = '已複製 ✓'; setTimeout(function(){ b.textContent = '複製序號'; }, 2000); };   // toast 會被閘門蓋住，改按鈕文字
+      var fb = function(){ var t = document.createElement('textarea'); t.value = FREE_SERIAL; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); }catch(e){} t.remove(); done(); };
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(FREE_SERIAL).then(done, fb); else fb();
+    };
+  } else $('gateFree').hidden = true;
   input.value = saved || '';
   setInterval(gateRenew, RECHECK_MS);
   window.addEventListener('pagehide', function(){ gateRelease(lsGet('entrySerial')); });   // 送不出去也沒關係，後端 40 分鐘逾時兜底
